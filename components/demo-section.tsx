@@ -20,14 +20,14 @@ interface VideoData {
 const videosData: VideoData[] = [
   {
     id: 1,
-    src: "/videos/detection-demo.mp4", // Remplacer par le chemin correct
+    src: "/videos/1.mp4", // Remplacer par le chemin correct
     title: "Détection des scripts malveillants",
     description: "Voyez comment Obsidian identifie les tentatives de triche instantanément et bloque les exploits.",
     category: "detection",
   },
   {
     id: 2,
-    src: "/videos/prevention-demo.mp4", // Remplacer par le chemin correct
+    src: "/videos/2.mp4", // Remplacer par le chemin correct
     title: "Prévention des exploits",
     description: "Découvrez comment Obsidian bloque les tentatives de triche avant qu'elles n'affectent votre jeu.",
     category: "prevention",
