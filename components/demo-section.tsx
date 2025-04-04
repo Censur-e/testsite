@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils"
 import { Play, Pause, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-// Structure de données pour les vidéos
+// Mettre à jour les données des vidéos pour inclure la catégorie "analytique"
+// Modifier la structure de données pour les vidéos
 interface VideoData {
   id: number
   src: string
@@ -20,67 +21,33 @@ interface VideoData {
 const videosData: VideoData[] = [
   {
     id: 1,
-    src: "/videos/1.mp4",
-    title: "Detection d'Emote Illégal",
-    description: "Voyez comment Obsidian identifie les émotes qu'il considère comme illégal.",
+    src: "/videos/detection-demo.mp4", // Remplacer par le chemin correct
+    title: "Détection des scripts malveillants",
+    description: "Voyez comment Obsidian identifie les tentatives de triche instantanément et bloque les exploits.",
     category: "detection",
   },
   {
     id: 2,
-    src: "/videos/2.mp4",
-    title: "Detection d'injection de script",
-    description: "Découvrez comment Obsidian detecte avec un algorithme les injections de script illégals.",
-    category: "detection",
+    src: "/videos/prevention-demo.mp4", // Remplacer par le chemin correct
+    title: "Prévention des exploits",
+    description: "Découvrez comment Obsidian bloque les tentatives de triche avant qu'elles n'affectent votre jeu.",
+    category: "prevention",
   },
   {
     id: 3,
-    src: "/videos/3.mp4",
-    title: "Analyse des changement de Workspace",
-    description: "Voyez comment Obsidian Workspace pour evitez toute modification illégal.",
-    category: "analytique"
+    src: "/videos/analytics-demo.mp4", // Nouveau fichier pour l'analytique
+    title: "Tableau de bord analytique",
+    description: "Explorez les statistiques détaillées et les tendances des tentatives de triche dans votre jeu.",
+    category: "analytique",
   },
   {
     id: 4,
-    src: "/videos/4.mp4",
-    title: "Detection Mode God",
-    description: "Découvrez comment Obsidian detecte le God ( PV = Infini ).",
-    category: "detection"
+    src: "/videos/analytics-reports.mp4", // Deuxième vidéo pour l'analytique
+    title: "Rapports de sécurité",
+    description: "Visualisez les rapports hebdomadaires et les alertes de sécurité pour votre jeu.",
+    category: "analytique",
   },
-  {
-    id: 5,
-    src: "/videos/5.mp4",
-    title: "Detection ESP",
-    description: "Voyez comment Obsidian arrive à detecter la plupart des ESP.",
-    category: "detection"
-  },
-  {
-    id: 6,
-    src: "/videos/6.mp4",
-    title: "Prévention de Copy de Map",
-    description: "Voyez comment Obsidian préviens au copy de Map ( SaveInstance ).",
-    category: "prevention"
-  },
-  {
-    id: 7,
-    src: "/videos/7.mp4",
-    title: "Detection Injection Executeur",
-    description: "Découvrez comment Obsidian detecte l'injection d'un executeur en jeu.",
-    category: "detection"
-  },
-  {
-    id: 8,
-    src: "/videos/8.mp4",
-    title: "Analyse des cliques",
-    description: "Voyez comment Obsidian vérifie les cliques pour prévenir un potentiel auto-clicker.",
-    category: "analytique"
-  },
-  {
-    id: 9,
-    src: "/videos/9.mp4",
-    title: "Detection Freecam",
-    description: "Voyez comment Obsidian detecte les freecams d'exploiteurs.",
-    category: "detection"
-  },
+  // Vous pourrez ajouter d'autres vidéos ici facilement
 ]
 
 export default function DemoSection() {
@@ -209,7 +176,7 @@ export default function DemoSection() {
                 value="analytique"
                 className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-obsidian-100/20 data-[state=active]:to-obsidian-500/20"
               >
-                Soon
+                Analytique
               </TabsTrigger>
             </TabsList>
 
@@ -315,26 +282,31 @@ export default function DemoSection() {
                 )}
 
                 {/* Affichage pour l'onglet "Soon" */}
-                {activeTab === "analytique" && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <div className="bg-obsidian-500/20 p-4 rounded-full mb-4">
-                      <svg
-                        className="w-12 h-12 text-obsidian-100"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                )}
+                {/*{activeTab === "analytique" && (*/}
+                {/*  <div className="absolute inset-0 flex flex-col items-center justify-center">*/}
+                {/*    <div className="bg-obsidian-500/20 p-4 rounded-full mb-4">*/}
+                {/*      <svg*/}
+                {/*        className="w-12 h-12 text-obsidian-100"*/}
+                {/*        xmlns="http://www.w3.org/2000/svg"*/}
+                {/*        fill="none"*/}
+                {/*        viewBox="0 0 24 24"*/}
+                {/*        stroke="currentColor"*/}
+                {/*      >*/}
+                {/*        <path*/}
+                {/*          strokeLinecap="round"*/}
+                {/*          strokeLinejoin="round"*/}
+                {/*          strokeWidth={1.5}*/}
+                {/*          d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"*/}
+                {/*        />*/}
+                {/*      </svg>*/}
+                {/*    </div>*/}
+                {/*    <h3 className="text-xl font-medium text-white mb-2">Tableau de bord analytique</h3>*/}
+                {/*    <p className="text-white/60 text-center max-w-md px-4">*/}
+                {/*      Cette fonctionnalité sera bientôt disponible. Restez à l'affût pour des analyses détaillées et des*/}
+                {/*      statistiques sur les tentatives de triche.*/}
+                {/*    </p>*/}
+                {/*  </div>*/}
+                {/*)}*/}
               </motion.div>
             </div>
           </Tabs>
