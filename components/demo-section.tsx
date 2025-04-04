@@ -333,11 +333,6 @@ export default function DemoSection() {
                         />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-medium text-white mb-2">Tableau de bord analytique</h3>
-                    <p className="text-white/60 text-center max-w-md px-4">
-                      Cette fonctionnalité sera bientôt disponible. Restez à l'affût pour des analyses détaillées et des
-                      statistiques sur les tentatives de triche.
-                    </p>
                   </div>
                 )}
               </motion.div>
