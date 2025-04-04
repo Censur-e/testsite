@@ -7,8 +7,6 @@ import { cn } from "@/lib/utils"
 import { Play, Pause, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-// Mettre à jour les données des vidéos pour inclure la catégorie "analytique"
-// Modifier la structure de données pour les vidéos
 interface VideoData {
   id: number
   src: string
@@ -17,6 +15,27 @@ interface VideoData {
   category: "detection" | "prevention" | "analytique"
 }
 
+// Données des vidéos
+const videosData: VideoData[] = [
+  {
+    id: 1,
+    src: "/videos/1.mp4",
+    title: "Detection d'Emote Illégal",
+    description: "Voyez comment Obsidian identifie les émotes qu'il considère comme illégal.",
+    category: "detection",
+  },
+  {
+    id: 2,
+    src: "/videos/2.mp4",
+    title: "Detection d'injection de script",
+    description: "Découvrez comment Obsidian detecte avec un algorithme les injections de script illégals.",
+    category: "detection",
+  },
+  {
+    id: 3,
+    src: "/videos/3.mp4",
+    title: "Analyse des changement de Workspace",
+    description: "Voyez comment Obsidian Workspace pour evitez toute modification illégal.",
     category: "analytique"
   },
   {
