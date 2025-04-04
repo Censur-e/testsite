@@ -250,7 +250,7 @@ export default function BetaSignupSection() {
                     {productData.remaining <= 0 ? (
                       <div className="bg-amber-500/10 border border-amber-500/30 text-amber-200 px-4 py-3 rounded-lg">
                         <p>
-                          Toutes les places pour la bêta ont été attribuées. Inscrivez-vous pour être informé des
+                          ( Contactez Discord car pour l'instant y'aura pas de place ) Toutes les places pour la bêta ont été attribuées. Inscrivez-vous pour être informé des
                           futures opportunités.
                         </p>
                       </div>
