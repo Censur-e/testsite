@@ -1,0 +1,59 @@
+{
+  "videos": [
+    {
+      "id": 1,
+      "title": "Détection des scripts malveillants",
+      "description": "Voyez comment Obsidian identifie les tentatives de triche instantanément et bloque les exploits.",
+      "category": "detection"
+    },
+    {
+      "id": 2,
+      "title": "Prévention des exploits",
+      "description": "Découvrez comment Obsidian bloque les tentatives de triche avant qu'elles n'affectent votre jeu.",
+      "category": "prevention"
+    },
+    {
+      "id": 3,
+      "title": "Détection avancée d'injection",
+      "description": "Observez comment Obsidian détecte les injections de code malveillant en temps réel.",
+      "category": "detection"
+    },
+    {
+      "id": 4,
+      "title": "Protection contre le noclip",
+      "description": "Voyez comment Obsidian empêche les joueurs d'utiliser des exploits de noclip.",
+      "category": "prevention"
+    },
+    {
+      "id": 5,
+      "title": "Détection de vitesse modifiée",
+      "description": "Découvrez comment Obsidian identifie les joueurs qui modifient leur vitesse de déplacement.",
+      "category": "detection"
+    },
+    {
+      "id": 6,
+      "title": "Protection contre les auto-clickers",
+      "description": "Observez comment Obsidian détecte et neutralise les auto-clickers et autres scripts automatisés.",
+      "category": "prevention"
+    },
+    {
+      "id": 7,
+      "title": "Détection d'exécuteur",
+      "description": "Voyez comment Obsidian identifie les logiciels d'injection de scripts externes.",
+      "category": "detection"
+    },
+    {
+      "id": 8,
+      "title": "Protection des interfaces utilisateur",
+      "description": "Découvrez comment Obsidian protège contre les interfaces utilisateur modifiées ou injectées.",
+      "category": "prevention"
+    },
+    {
+      "id": 9,
+      "title": "Détection de manipulation de données",
+      "description": "Observez comment Obsidian identifie les tentatives de modification des données du jeu.",
+      "category": "detection"
+    }
+  ]
+}
+
