@@ -32,15 +32,13 @@ const videosData: VideoData[] = [
     description: "Découvrez comment Obsidian bloque les tentatives de triche avant qu'elles n'affectent votre jeu.",
     category: "prevention",
   },
-  // Vous pourrez ajouter d'autres vidéos ici facilement
-  // {
-  //   id: 3,
-  //   src: "/videos/3.mp4",
-  //   title: "Titre de la vidéo 3",
-  //   description: "Description de la vidéo 3",
-  //   category: "detection"
-  // },
-  // etc...
+  {
+    id: 3,
+    src: "/videos/3.mp4",
+    title: "Titre de la vidéo 3",
+    description: "Description de la vidéo 3",
+    category: "detection"
+  },
 ]
 
 export default function DemoSection() {
