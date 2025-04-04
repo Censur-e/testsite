@@ -20,23 +20,65 @@ interface VideoData {
 const videosData: VideoData[] = [
   {
     id: 1,
-    src: "/videos/1.mp4", // Remplacer par le chemin correct
-    title: "Détection des scripts malveillants",
-    description: "Voyez comment Obsidian identifie les tentatives de triche instantanément et bloque les exploits.",
+    src: "/videos/1.mp4",
+    title: "Detection d'Emote Illégal",
+    description: "Voyez comment Obsidian identifie les émotes qu'il considère comme illégal.",
     category: "detection",
   },
   {
     id: 2,
-    src: "/videos/2.mp4", // Remplacer par le chemin correct
-    title: "Prévention des exploits",
-    description: "Découvrez comment Obsidian bloque les tentatives de triche avant qu'elles n'affectent votre jeu.",
-    category: "prevention",
+    src: "/videos/2.mp4",
+    title: "Detection d'injection de script",
+    description: "Découvrez comment Obsidian detecte avec un algorithme les injections de script illégals.",
+    category: "detection",
   },
   {
     id: 3,
     src: "/videos/3.mp4",
-    title: "Titre de la vidéo 3",
-    description: "Description de la vidéo 3",
+    title: "Analyse des changement de Workspace",
+    description: "Voyez comment Obsidian Workspace pour evitez toute modification illégal.",
+    category: "analytique"
+  },
+  {
+    id: 4,
+    src: "/videos/4.mp4",
+    title: "Detection Mode God",
+    description: "Découvrez comment Obsidian detecte le God ( PV = Infini ).",
+    category: "detection"
+  },
+  {
+    id: 5,
+    src: "/videos/5.mp4",
+    title: "Detection ESP",
+    description: "Voyez comment Obsidian arrive à detecter la plupart des ESP.",
+    category: "detection"
+  },
+  {
+    id: 6,
+    src: "/videos/6.mp4",
+    title: "Prévention de Copy de Map",
+    description: "Voyez comment Obsidian préviens au copy de Map ( SaveInstance ).",
+    category: "prevention"
+  },
+  {
+    id: 7,
+    src: "/videos/7.mp4",
+    title: "Detection Injection Executeur",
+    description: "Découvrez comment Obsidian detecte l'injection d'un executeur en jeu.",
+    category: "detection"
+  },
+  {
+    id: 8,
+    src: "/videos/8.mp4",
+    title: "Analyse des cliques",
+    description: "Voyez comment Obsidian vérifie les cliques pour prévenir un potentiel auto-clicker.",
+    category: "analytique"
+  },
+  {
+    id: 9,
+    src: "/videos/9.mp4",
+    title: "Detection Freecam",
+    description: "Voyez comment Obsidian detecte les freecams d'exploiteurs.",
     category: "detection"
   },
 ]
