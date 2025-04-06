@@ -251,7 +251,7 @@ export default function BetaSignupSection() {
                       <div className="bg-amber-500/10 border border-amber-500/30 text-amber-200 px-4 py-3 rounded-lg">
                         <p>
                           ( Contactez <a
-                                        href="https://www.roblox.com/fr/games/135185023723160/Obsidian-Anti-Cheat-Test"
+                                        href="https://discord.gg/sFcAYQhcXR"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-block mt-4 text-obsidian-100 hover:text-obsidian-200 transition-colors"
