@@ -18,7 +18,9 @@ import {
   ScanEye,
   Table,
   CopyX,
+  History,
   ArrowRight,
+  Gamepad,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -158,6 +160,16 @@ export default function FeaturePageClient() {
           name: "Manipulation de données",
           icon: <Cpu className="text-white" size={18} />,
           description: "Détecte les tentatives de modification des données du jeu ou des statistiques des joueurs.",
+        },
+        {
+          name: "NOUVEAU -  Changement de la version",
+          icon: <History className="text-white" size={18} />,
+          description: "Détecte lorsqu'un joueur n'a pas la version officiel actuelle ce qui peut être utiliser pour contrer une mise à jour.",
+        },
+        {
+          name: "NOUVEAU - Emulateur Detection",
+          icon: <Gamepad className="text-white" size={18} />,
+          description: "Permet de detecter tout joueur qui pourrait jouer sur un logiciel d'émulation ce qui peut être utiliser pour utiliser des executeurs mobiles.",
         },
       ],
     },
