@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "La description doit commencer par 'Nouveau cheateur detecté (cheh à lui !)'" }, { status: 400 })
       }
     
-      if (embed.title !== "tt") {
+      if (embed.title !== "OBSIDIAN - ANTI-CHEAT") {
         return NextResponse.json({ error: "Titre non autorisé" }, { status: 400 })
       }
     }
