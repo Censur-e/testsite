@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Format d'embed invalide" }, { status: 400 })
     }
 
-    const webhookUrl = process.env.DISCORD_WEBHOOK_URL
+    const webhookUrl = process.env.DISCORD_WEBHOOK_URL2
     if (!webhookUrl) {
       console.error("Webhook Discord manquant")
       return NextResponse.json({ error: "Configuration du webhook manquante" }, { status: 500 })
