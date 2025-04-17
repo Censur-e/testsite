@@ -16,16 +16,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Format d'embed invalide" }, { status: 400 })
     }
 
-    // ➕ Vérification personnalisée
-    for (const embed of embeds) {
-      if (embed.title !== "tt") {
-        return NextResponse.json({ error: "Titre non autorisé" }, { status: 400 })
-      }
-      if (typeof embed.description !== "string" || !embed.description.startsWith("Nouveau cheateur detecté (cheh à lui !)")) {
-        return NextResponse.json({ error: "La description doit commencer par 'Nouveau cheateur detecté (cheh à lui !)'" }, { status: 400 })
-      }
-    }
-
     const webhookUrl = process.env.DISCORD_WEBHOOK_URL2
     if (!webhookUrl) {
       console.error("Webhook Discord manquant")
@@ -34,9 +24,9 @@ export async function POST(request: NextRequest) {
 
     const webhookData = {
       embeds: embeds.map((embed) => ({
-        title: embed.title,
+        title: embed.title || "Sans titre",
         url: embed.url,
-        description: embed.description,
+        description: embed.description || "Pas de description.",
         color: 0x8364e8,
         timestamp: new Date().toISOString(),
         footer: {
