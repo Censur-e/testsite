@@ -1,41 +1,47 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { deleteServer, ADMIN_USERNAME, ADMIN_PASSWORD } from "@/lib/server-data"
+import { authenticateUser, getServerById } from "@/lib/server-data"
+// @ts-ignore
+import { sign } from "jsonwebtoken"
 
-// Middleware pour vérifier l'authentification de l'administrateur
-async function authenticateAdmin(request: NextRequest) {
-  const authHeader = request.headers.get("authorization")
+const JWT_SECRET = process.env.JWT_SECRET || "obsidian-jwt-secret"
 
-  if (!authHeader || !authHeader.startsWith("Basic ")) {
-    return false
-  }
-
-  const base64Credentials = authHeader.split(" ")[1]
-  const credentials = Buffer.from(base64Credentials, "base64").toString("ascii")
-  const [username, password] = credentials.split(":")
-
-  return username === ADMIN_USERNAME && password === ADMIN_PASSWORD
-}
-
-// DELETE - Supprimer un serveur (admin uniquement)
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  const isAuthenticated = await authenticateAdmin(request)
-
-  if (!isAuthenticated) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
-  }
-
-  const serverId = params.id
-
+export async function POST(request: NextRequest) {
   try {
-    const success = await deleteServer(serverId)
+    const body = await request.json()
+    const { serverId, username, password } = body
 
-    if (success) {
-      return NextResponse.json({ success: true })
-    } else {
+    if (!serverId || !username || !password) {
+      return NextResponse.json({ error: "Données incomplètes" }, { status: 400 })
+    }
+
+    // Vérifier si le serveur existe
+    const server = await getServerById(serverId)
+
+    if (!server) {
       return NextResponse.json({ error: "Serveur non trouvé" }, { status: 404 })
     }
+
+    // Authentifier l'utilisateur
+    const isAuthenticated = await authenticateUser(serverId, username, password)
+
+    if (!isAuthenticated) {
+      return NextResponse.json({ error: "Authentification échouée" }, { status: 401 })
+    }
+
+    // Générer un token JWT
+    const token = sign(
+      {
+        serverId,
+        username,
+        name: server.name,
+      },
+      JWT_SECRET,
+      { expiresIn: "1h" },
+    )
+
+    return NextResponse.json({ token, serverId, username, serverName: server.name })
   } catch (error) {
-    console.error("Erreur lors de la suppression du serveur:", error)
-    return NextResponse.json({ error: "Erreur lors de la suppression du serveur" }, { status: 500 })
+    console.error("Erreur lors de l'authentification:", error)
+    return NextResponse.json({ error: "Erreur lors de l'authentification" }, { status: 500 })
   }
 }
