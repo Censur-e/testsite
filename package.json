@@ -68,6 +68,7 @@
     "@aws-sdk/credential-providers": "latest",
     "framer-motion": "latest",
     "jsonwebtoken": "latest",
+    "mongodb": "latest",
     "bcryptjs": "latest"
   },
   "devDependencies": {
