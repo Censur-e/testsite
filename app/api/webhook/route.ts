@@ -1,94 +1,89 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { decrementRemainingCount, getProductCount } from "@/lib/product-count"
+import { getServerById } from "@/lib/server-data"
 
-// URL du webhook Discord (à remplacer par votre URL réelle)
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || "https://discord.com/api/webhooks/your-webhook-url"
+const SECRET_KEY = "oBsiACdian"
+const DELAY_MS = 5000
+let lastRequestTime = 0
 
 export async function POST(request: NextRequest) {
   try {
+    const now = Date.now()
+    if (now - lastRequestTime < DELAY_MS) {
+      const waitTime = Math.ceil((DELAY_MS - (now - lastRequestTime)) / 1000)
+      return NextResponse.json({ error: `Trop de requêtes. Réessaye dans ${waitTime}s.` }, { status: 429 })
+    }
+    lastRequestTime = now
+
     const body = await request.json()
-    const { username, email, experience } = body
+    const { auth, embeds, serverId } = body
 
-    // Validation des données
-    if (!username || !email || !experience) {
-      return new NextResponse(JSON.stringify({ error: "Données incomplètes" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+    if (!auth || auth !== SECRET_KEY) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 403 })
     }
 
-    // Récupérer les données actuelles avant de décrémenter
-    const currentData = getProductCount()
-    console.log("Données avant décrémentation:", currentData)
-
-    // Décrémenter le compteur de produits restants
-    const productData = decrementRemainingCount()
-    console.log("Données après décrémentation:", productData)
-
-    // Créer le message pour Discord
-    const discordMessage = {
-      embeds: [
-        {
-          title: "Nouvelle demande d'accès à la bêta",
-          color: 0x8364e8, // Couleur obsidian
-          fields: [
-            {
-              name: "Nom d'utilisateur",
-              value: username,
-              inline: true,
-            },
-            {
-              name: "Email",
-              value: email,
-              inline: true,
-            },
-            {
-              name: "Expérience",
-              value: experience,
-            },
-            {
-              name: "Places restantes",
-              value: `${productData.remaining}/${productData.total}`,
-              inline: true,
-            },
-          ],
-          timestamp: new Date().toISOString(),
-        },
-      ],
+    if (!Array.isArray(embeds) || embeds.length === 0) {
+      return NextResponse.json({ error: "Format d'embed invalide" }, { status: 400 })
     }
 
-    // Envoyer le message au webhook Discord
-    try {
-      const response = await fetch(DISCORD_WEBHOOK_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(discordMessage),
-      })
-
-      if (!response.ok) {
-        console.error("Erreur lors de l'envoi au webhook Discord:", await response.text())
+    for (const embed of embeds) {
+      if (
+        !embed ||
+        typeof embed !== "object" ||
+        typeof embed.description !== "string" ||
+        !embed.description.startsWith("Nouveau cheateur detecté")
+      ) {
+        return NextResponse.json(
+          { error: "La description doit commencer par 'Nouveau cheateur detecté'" },
+          { status: 400 },
+        )
       }
-    } catch (webhookError) {
-      console.error("Erreur lors de l'envoi au webhook Discord:", webhookError)
-      // On continue même si l'envoi au webhook échoue
+
+      if (embed.title !== "OBSIDIAN - ANTI-CHEAT") {
+        return NextResponse.json({ error: "Titre non autorisé" }, { status: 400 })
+      }
     }
 
-    return new NextResponse(
-      JSON.stringify({
-        success: true,
-        remaining: productData.remaining,
-        total: productData.total,
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    )
-  } catch (error) {
-    console.error("Erreur lors du traitement de la demande:", error)
-    return new NextResponse(JSON.stringify({ error: "Erreur serveur" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
+    // Si un serverId est fourni, utiliser le webhook spécifique à ce serveur
+    let webhookUrl = process.env.DISCORD_WEBHOOK_URL2
+
+    if (serverId) {
+      const server = await getServerById(serverId)
+      if (server && server.webhookUrl) {
+        webhookUrl = server.webhookUrl
+      }
+    }
+
+    if (!webhookUrl) {
+      return NextResponse.json({ error: "Configuration du webhook manquante" }, { status: 500 })
+    }
+
+    const webhookData = {
+      embeds: embeds.map((embed) => ({
+        title: embed.title || "Sans titre",
+        url: embed.url,
+        description: embed.description || "Pas de description.",
+        color: 0x8364e8,
+        timestamp: new Date().toISOString(),
+        footer: {
+          text: embed.footer || "Obsidian Anti-Cheat System",
+        },
+      })),
+    }
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(webhookData),
     })
+
+    if (!response.ok) {
+      return NextResponse.json({ error: "Erreur d'envoi au webhook" }, { status: 500 })
+    }
+
+    return NextResponse.json({ status: "Message envoyé à Discord" }, { status: 200 })
+  } catch (error) {
+    return NextResponse.json({ error: "Erreur interne du serveur" }, { status: 500 })
   }
 }
-

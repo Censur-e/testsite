@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server"
 
 export async function GET() {
-  const robloxVersion = 669
-  const futurrobloxVersion = 670
+  // Vous pouvez mettre à jour cette valeur manuellement ou la récupérer dynamiquement
+  // depuis une source externe si nécessaire
+  const robloxVersion = 0 // Remplacez par la version actuelle de Roblox
 
   return NextResponse.json(
     {
       "roblox-version": robloxVersion,
-      "futur-roblox-version": futurrobloxVersion,
     },
     {
       status: 200,

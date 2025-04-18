@@ -250,14 +250,7 @@ export default function BetaSignupSection() {
                     {productData.remaining <= 0 ? (
                       <div className="bg-amber-500/10 border border-amber-500/30 text-amber-200 px-4 py-3 rounded-lg">
                         <p>
-                          ( Contactez <a
-                                        href="https://discord.gg/sFcAYQhcXR"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-block mt-4 text-obsidian-100 hover:text-obsidian-200 transition-colors"
-                                      >
-                                        Discord
-                                      </a> car pour l'instant y'aura pas de place ) Toutes les places pour la bêta ont été attribuées. Inscrivez-vous pour être informé des
+                          Toutes les places pour la bêta ont été attribuées. Inscrivez-vous pour être informé des
                           futures opportunités.
                         </p>
                       </div>
@@ -365,4 +358,3 @@ export default function BetaSignupSection() {
     </section>
   )
 }
-

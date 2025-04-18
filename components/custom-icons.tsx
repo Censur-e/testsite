@@ -161,4 +161,3 @@ export function ArrowRightIcon({ className }: { className?: string }) {
     </svg>
   )
 }
-

@@ -87,7 +87,7 @@ export default function Footer() {
               </svg>
             </a>
             <a
-              href="https://discord.gg/sFcAYQhcXR"
+              href="https://discord.com"
               target="_blank"
               rel="noopener noreferrer"
               className="text-white/40 hover:text-obsidian-200 transition-colors"
@@ -121,4 +121,3 @@ export default function Footer() {
     </footer>
   )
 }
-
