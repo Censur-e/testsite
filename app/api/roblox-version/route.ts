@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 
 export async function GET() {
-  const robloxVersion = 669
-  const futurrobloxVersion = 670
+  const robloxVersion = 670
+  const futurrobloxVersion = 671
 
   return NextResponse.json(
     {
