@@ -253,7 +253,7 @@ export default function BetaSignupSection() {
                           Toutes les places pour la bêta ont été attribuées. Inscrivez-vous pour être informé des
                           futures opportunités. Rejoignez-nous sur 
                           <a href="https://discord.gg/sFcAYQhcXR" style={{ color: "#5865F2" }}>
-                            Discord
+                             Discord
                           </a>
                           !
                         </p>
