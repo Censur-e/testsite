@@ -156,7 +156,7 @@ export default function BetaSignupSection() {
                     {productData.remaining} / {productData.total}
                   </span>
                 </div>
-                <Progress value={percentageTaken}/>
+                <Progress value={percentageTaken} className="h-2 bg-white/10" />
                 {productData.remaining <= 10 && (
                   <p className="text-amber-400 text-sm mt-2">
                     {productData.remaining === 0
@@ -252,7 +252,7 @@ export default function BetaSignupSection() {
                         <p>
                           Toutes les places pour la bêta ont été attribuées. Inscrivez-vous pour être informé des
                           futures opportunités. Rejoignez-nous sur 
-                          <a href="https://discord.gg/sFcAYQhcXR" >Discord</a> !
+                          <a href="https://discord.gg/sFcAYQhcXR" style="color: #5865F2;"> Discord</a> !
                         </p>
                       </div>
                     ) : null}
