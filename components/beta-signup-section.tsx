@@ -251,7 +251,8 @@ export default function BetaSignupSection() {
                       <div className="bg-amber-500/10 border border-amber-500/30 text-amber-200 px-4 py-3 rounded-lg">
                         <p>
                           Toutes les places pour la bêta ont été attribuées. Inscrivez-vous pour être informé des
-                          futures opportunités.
+                          futures opportunités. Rejoignez-nous sur 
+                          <a href="https://discord.gg/sFcAYQhcXR">Discord</a> !
                         </p>
                       </div>
                     ) : null}
