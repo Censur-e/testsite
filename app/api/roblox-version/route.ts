@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server"
 
 export async function GET() {
-  const robloxVersion = 670
-  const futurrobloxVersion = 671
+  const response = await fetch("https://clientsettings.roblox.com/v2/client-version/WindowsPlayer")
+  const data = await response.json()
+  
+  const robloxVersion = parseInt(data.version.split('.')[1])
+  const futurrobloxVersion = robloxVersion + 1
 
   return NextResponse.json(
     {
