@@ -1,258 +1,123 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-// Interface pour les données de serveur
-interface ServerData {
+// Structure simple pour un serveur
+interface Server {
   id: string
   name: string
-  status: "connected" | "disconnected"
+  status: "online" | "offline"
   lastSeen: string
-  playerCount?: number
-  gameId?: string
+  playerCount: number
+  gameId: string
 }
 
-// Stockage en mémoire des serveurs
-const servers: Map<string, ServerData> = new Map()
+// Stockage en mémoire (remplacez par une base de données en production)
+let servers: Server[] = []
 
-// Fonction pour nettoyer les serveurs inactifs
-function cleanupInactiveServers() {
-  const now = new Date()
-  const thirtySecondsAgo = new Date(now.getTime() - 30000)
+// Fonction utilitaire pour nettoyer les serveurs inactifs
+function cleanupServers() {
+  const now = Date.now()
+  const fiveMinutesAgo = now - 5 * 60 * 1000 // 5 minutes
 
-  for (const [serverId, server] of servers.entries()) {
-    const lastSeen = new Date(server.lastSeen)
-    if (lastSeen < thirtySecondsAgo && server.status === "connected") {
-      servers.set(serverId, {
-        ...server,
-        status: "disconnected",
-      })
+  servers = servers.map((server) => {
+    const lastSeenTime = new Date(server.lastSeen).getTime()
+    if (lastSeenTime < fiveMinutesAgo && server.status === "online") {
+      return { ...server, status: "offline" as const }
     }
-  }
-}
-
-// Fonction pour gérer les erreurs CORS et les headers
-function createResponse(data: any, status = 200) {
-  const response = NextResponse.json(data, { status })
-
-  // Ajouter les headers CORS pour Roblox
-  response.headers.set("Access-Control-Allow-Origin", "*")
-  response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-  response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-  return response
-}
-
-// OPTIONS - Gérer les requêtes preflight CORS
-export async function OPTIONS() {
-  console.log("📋 Requête OPTIONS reçue (preflight CORS)")
-
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Max-Age": "86400",
-    },
+    return server
   })
 }
 
-// GET - Récupérer la liste des serveurs
-export async function GET(request: NextRequest) {
+// GET - Récupérer tous les serveurs
+export async function GET() {
   try {
-    console.log("📨 Requête GET reçue")
+    cleanupServers()
 
-    cleanupInactiveServers()
-
-    const serverList = Array.from(servers.values()).sort((a, b) => {
-      if (a.status !== b.status) {
-        return a.status === "connected" ? -1 : 1
-      }
-      return a.name.localeCompare(b.name)
-    })
-
-    console.log(`✅ Retour de ${serverList.length} serveurs`)
-
-    return createResponse({
+    const response = {
       success: true,
-      servers: serverList,
-      total: serverList.length,
-      connected: serverList.filter((s) => s.status === "connected").length,
-      disconnected: serverList.filter((s) => s.status === "disconnected").length,
-    })
+      servers: servers,
+      stats: {
+        total: servers.length,
+        online: servers.filter((s) => s.status === "online").length,
+        offline: servers.filter((s) => s.status === "offline").length,
+      },
+    }
+
+    console.log("📊 GET /api/servers - Retour:", response.stats)
+
+    return NextResponse.json(response)
   } catch (error) {
-    console.error("❌ Erreur lors de la récupération des serveurs:", error)
-    return createResponse({ success: false, error: "Erreur serveur" }, 500)
+    console.error("❌ Erreur GET:", error)
+    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
   }
 }
 
-// POST - Mettre à jour l'état d'un serveur
+// POST - Mettre à jour un serveur
 export async function POST(request: NextRequest) {
   try {
-    console.log("📨 Requête POST reçue")
-    console.log("🔍 URL:", request.url)
-    console.log("🔍 Method:", request.method)
-
-    // Vérifier le Content-Type
-    const contentType = request.headers.get("content-type")
-    console.log("📋 Content-Type:", contentType)
+    console.log("📨 POST /api/servers - Nouvelle requête")
 
     // Lire le corps de la requête
-    let body
-    try {
-     const rawBody = await request.text()
-     console.log("📊 Corps brut reçu:", rawBody)
+    const body = await request.json()
+    console.log("📋 Données reçues:", body)
 
-     if (!rawBody) {
-       console.error("❌ Corps de la requête vide")
-       return createResponse({
-         success: false,
-         error: "Corps de la requête vide",
-       }, 400)
-     }
-
-    body = JSON.parse(rawBody)
-    console.log("📊 Corps parsé:", body)
-    } catch (parseError) {
-      console.error("❌ Erreur de parsing JSON:", parseError)
-      return createResponse(
-        {
-          success: false,
-          error: "Corps de la requête JSON invalide",
-          details: parseError instanceof Error ? parseError.message : "Erreur inconnue",
-        },
-        400,
-      )
+    // Validation simple
+    if (!body.serverId || !body.serverName) {
+      console.log("❌ Données manquantes")
+      return NextResponse.json({ success: false, error: "serverId et serverName requis" }, { status: 400 })
     }
 
-    const { serverId, serverName, status, playerCount, gameId } = body
-
-    // Validation détaillée des données
-    const errors: string[] = []
-
-    if (!serverId) {
-      errors.push("serverId est requis")
-    } else if (typeof serverId !== "string") {
-      errors.push("serverId doit être une chaîne de caractères")
+    // Créer ou mettre à jour le serveur
+    const serverData: Server = {
+      id: String(body.serverId),
+      name: String(body.serverName),
+      status: "online",
+      lastSeen: new Date().toISOString(),
+      playerCount: Number(body.playerCount) || 0,
+      gameId: String(body.gameId) || "",
     }
 
-    if (!serverName) {
-      errors.push("serverName est requis")
-    } else if (typeof serverName !== "string") {
-      errors.push("serverName doit être une chaîne de caractères")
+    // Trouver et mettre à jour ou ajouter
+    const existingIndex = servers.findIndex((s) => s.id === serverData.id)
+    if (existingIndex >= 0) {
+      servers[existingIndex] = serverData
+      console.log("✅ Serveur mis à jour:", serverData.name)
+    } else {
+      servers.push(serverData)
+      console.log("✅ Nouveau serveur ajouté:", serverData.name)
     }
 
-    if (status && !["connected", "disconnected"].includes(status)) {
-      errors.push("status doit être 'connected' ou 'disconnected'")
-    }
-
-    if (playerCount !== undefined && (typeof playerCount !== "number" || playerCount < 0)) {
-      errors.push("playerCount doit être un nombre positif")
-    }
-
-    if (errors.length > 0) {
-      console.error("❌ Erreurs de validation:", errors)
-      return createResponse(
-        {
-          success: false,
-          error: "Données de requête invalides",
-          details: errors,
-          received: body,
-        },
-        400,
-      )
-    }
-
-    // Créer les données du serveur
-    const now = new Date().toISOString()
-    const serverData: ServerData = {
-      id: serverId,
-      name: serverName,
-      status: status || "connected",
-      lastSeen: now,
-      ...(playerCount !== undefined && { playerCount: Number(playerCount) }),
-      ...(gameId && { gameId: String(gameId) }),
-    }
-
-    // Mettre à jour ou créer le serveur
-    servers.set(serverId, serverData)
-
-    console.log(`✅ Serveur mis à jour: ${serverName} (${serverId}) - ${serverData.status}`)
-    console.log("📊 Données sauvegardées:", serverData)
-
-    return createResponse({
+    return NextResponse.json({
       success: true,
-      message: "Serveur mis à jour avec succès",
+      message: "Serveur enregistré",
       server: serverData,
     })
   } catch (error) {
-    console.error("❌ Erreur lors de la mise à jour du serveur:", error)
-    return createResponse(
-      {
-        success: false,
-        error: "Erreur lors du traitement de la requête",
-        details: error instanceof Error ? error.message : "Erreur inconnue",
-      },
-      500,
-    )
+    console.error("❌ Erreur POST:", error)
+    return NextResponse.json({ success: false, error: "Erreur lors du traitement" }, { status: 500 })
   }
-}
-
-// PUT - Alias pour POST (certains clients utilisent PUT pour les mises à jour)
-export async function PUT(request: NextRequest) {
-  console.log("📨 Requête PUT reçue, redirection vers POST")
-  return POST(request)
 }
 
 // DELETE - Supprimer un serveur
 export async function DELETE(request: NextRequest) {
   try {
-    console.log("📨 Requête DELETE reçue")
-
-    const { searchParams } = new URL(request.url)
-    const serverId = searchParams.get("serverId")
+    const url = new URL(request.url)
+    const serverId = url.searchParams.get("serverId")
 
     if (!serverId) {
-      return createResponse({ success: false, error: "serverId est requis" }, 400)
+      return NextResponse.json({ success: false, error: "serverId requis" }, { status: 400 })
     }
 
-    if (servers.has(serverId)) {
-      servers.delete(serverId)
-      console.log(`🗑️ Serveur supprimé: ${serverId}`)
-      return createResponse({
-        success: true,
-        message: "Serveur supprimé avec succès",
-      })
+    const initialLength = servers.length
+    servers = servers.filter((s) => s.id !== serverId)
+
+    if (servers.length < initialLength) {
+      console.log("🗑️ Serveur supprimé:", serverId)
+      return NextResponse.json({ success: true, message: "Serveur supprimé" })
     } else {
-      return createResponse({ success: false, error: "Serveur non trouvé" }, 404)
+      return NextResponse.json({ success: false, error: "Serveur non trouvé" }, { status: 404 })
     }
   } catch (error) {
-    console.error("❌ Erreur lors de la suppression du serveur:", error)
-    return createResponse({ success: false, error: "Erreur serveur" }, 500)
+    console.error("❌ Erreur DELETE:", error)
+    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
   }
-}
-
-// Gérer toutes les autres méthodes non supportées
-export async function PATCH() {
-  console.log("❌ Méthode PATCH non supportée")
-  return createResponse(
-    {
-      success: false,
-      error: "Méthode PATCH non supportée",
-      supportedMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    },
-    405,
-  )
-}
-
-// Handler par défaut pour les méthodes non définies
-export function handler(request: NextRequest) {
-  console.log(`❌ Méthode ${request.method} non supportée`)
-  return createResponse(
-    {
-      success: false,
-      error: `Méthode ${request.method} non supportée`,
-      supportedMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    },
-    405,
-  )
 }

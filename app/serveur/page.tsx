@@ -1,11 +1,11 @@
+import ServerMonitor from "./ServerMonitor"
 import type { Metadata } from "next"
-import ServerPageClient from "./ServerPageClient"
 
 export const metadata: Metadata = {
-  title: "Obsidian - Serveurs",
-  description: "Surveillance des serveurs Roblox connectés à Obsidian",
+  title: "Obsidian - Monitoring Serveurs",
+  description: "Surveillance en temps réel des serveurs Roblox",
 }
 
 export default function ServerPage() {
-  return <ServerPageClient />
+  return <ServerMonitor />
 }
