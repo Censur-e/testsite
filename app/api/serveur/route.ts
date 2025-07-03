@@ -99,22 +99,19 @@ export async function POST(request: NextRequest) {
     // Lire le corps de la requête
     let body
     try {
-      const rawBody = await request.text()
-      console.log("📊 Corps brut reçu:", rawBody)
+     const rawBody = await request.text()
+     console.log("📊 Corps brut reçu:", rawBody)
 
-      if (!rawBody) {
-        console.error("❌ Corps de la requête vide")
-        return createResponse(
-          {
-            success: false,
-            error: "Corps de la requête vide",
-          },
-          400,
-        )
-      }
+     if (!rawBody) {
+       console.error("❌ Corps de la requête vide")
+       return createResponse({
+         success: false,
+         error: "Corps de la requête vide",
+       }, 400)
+     }
 
-      body = JSON.parse(rawBody)
-      console.log("📊 Corps parsé:", body)
+    body = JSON.parse(rawBody)
+    console.log("📊 Corps parsé:", body)
     } catch (parseError) {
       console.error("❌ Erreur de parsing JSON:", parseError)
       return createResponse(
