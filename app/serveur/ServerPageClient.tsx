@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
 import { Shield, Server, Users, Clock, RefreshCw, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -82,7 +81,7 @@ export default function ServerPageClient() {
 
       <div className="container mx-auto px-4 md:px-6 py-8 relative z-10">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 animate-in fade-in slide-in-from-top duration-500">
           <div className="flex items-center space-x-4">
             <Button
               variant="outline"
@@ -120,7 +119,7 @@ export default function ServerPageClient() {
         </div>
 
         {/* Statistiques */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 animate-in fade-in slide-in-from-bottom duration-700">
           <Card className="bg-white/[0.03] border-white/[0.08] backdrop-blur-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-white/60 flex items-center">
@@ -162,18 +161,17 @@ export default function ServerPageClient() {
         <div className="space-y-6">
           {/* Serveurs connectés */}
           {connectedServers.length > 0 && (
-            <div>
+            <div className="animate-in fade-in slide-in-from-left duration-500 delay-200">
               <h2 className="text-xl font-semibold text-green-400 mb-4 flex items-center">
                 <div className="w-3 h-3 rounded-full bg-green-500 mr-2 animate-pulse"></div>
                 Serveurs Connectés ({connectedServers.length})
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {connectedServers.map((server, index) => (
-                  <motion.div
+                  <div
                     key={server.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    className="animate-in fade-in slide-in-from-bottom duration-300"
+                    style={{ animationDelay: `${index * 100}ms` }}
                   >
                     <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/30 backdrop-blur-sm hover:from-green-500/15 hover:to-green-600/10 transition-all duration-300">
                       <CardHeader className="pb-3">
@@ -202,7 +200,7 @@ export default function ServerPageClient() {
                         </div>
                       </CardContent>
                     </Card>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -210,18 +208,17 @@ export default function ServerPageClient() {
 
           {/* Serveurs déconnectés */}
           {disconnectedServers.length > 0 && (
-            <div>
+            <div className="animate-in fade-in slide-in-from-right duration-500 delay-300">
               <h2 className="text-xl font-semibold text-red-400 mb-4 flex items-center">
                 <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
                 Serveurs Déconnectés ({disconnectedServers.length})
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {disconnectedServers.map((server, index) => (
-                  <motion.div
+                  <div
                     key={server.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    className="animate-in fade-in slide-in-from-bottom duration-300"
+                    style={{ animationDelay: `${index * 100}ms` }}
                   >
                     <Card className="bg-gradient-to-br from-red-500/10 to-red-600/5 border-red-500/30 backdrop-blur-sm hover:from-red-500/15 hover:to-red-600/10 transition-all duration-300">
                       <CardHeader className="pb-3">
@@ -244,7 +241,7 @@ export default function ServerPageClient() {
                         </div>
                       </CardContent>
                     </Card>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -252,7 +249,7 @@ export default function ServerPageClient() {
 
           {/* Aucun serveur */}
           {servers.length === 0 && !isLoading && (
-            <div className="text-center py-12">
+            <div className="text-center py-12 animate-in fade-in zoom-in duration-500">
               <div className="bg-obsidian-500/20 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
                 <Server className="h-8 w-8 text-obsidian-200" />
               </div>
@@ -265,7 +262,7 @@ export default function ServerPageClient() {
 
           {/* Loading */}
           {isLoading && (
-            <div className="text-center py-12">
+            <div className="text-center py-12 animate-in fade-in zoom-in duration-500">
               <RefreshCw className="h-8 w-8 text-obsidian-200 animate-spin mx-auto mb-4" />
               <p className="text-white/60">Chargement des serveurs...</p>
             </div>
