@@ -5,33 +5,34 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, Plus, Users, Shield, AlertCircle } from "lucide-react"
+import { Trash2, Plus, Server, Shield, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
-interface WhitelistEntry {
-  id: string
-  username?: string
+interface ServerEntry {
+  gameId: string
+  gameName?: string
   addedAt: string
+  lastCheck?: string
 }
 
-export default function WhitelistManager() {
-  const [whitelistIds, setWhitelistIds] = useState<WhitelistEntry[]>([])
-  const [newId, setNewId] = useState("")
+export default function ServerWhitelistManager() {
+  const [servers, setServers] = useState<ServerEntry[]>([])
+  const [newGameId, setNewGameId] = useState("")
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
   const { toast } = useToast()
 
-  // Charger la whitelist au démarrage
+  // Charger la liste des serveurs au démarrage
   useEffect(() => {
-    fetchWhitelist()
+    fetchServers()
   }, [])
 
-  const fetchWhitelist = async () => {
+  const fetchServers = async () => {
     try {
       const response = await fetch("/api/whitelist")
       if (response.ok) {
         const data = await response.json()
-        setWhitelistIds(data.whitelist || [])
+        setServers(data.servers || [])
       }
     } catch (error) {
       console.error("Erreur lors du chargement:", error)
@@ -40,11 +41,11 @@ export default function WhitelistManager() {
     }
   }
 
-  const addToWhitelist = async () => {
-    if (!newId.trim()) {
+  const addServer = async () => {
+    if (!newGameId.trim()) {
       toast({
         title: "Erreur",
-        description: "Veuillez entrer un ID Roblox valide",
+        description: "Veuillez entrer un Game ID valide",
         variant: "destructive",
       })
       return
@@ -57,17 +58,17 @@ export default function WhitelistManager() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userId: newId.trim() }),
+        body: JSON.stringify({ gameId: newGameId.trim() }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        setWhitelistIds(data.whitelist)
-        setNewId("")
+        setServers(data.servers)
+        setNewGameId("")
         toast({
           title: "Succès",
-          description: `ID ${newId} ajouté à la whitelist`,
+          description: `Serveur ${newGameId} ajouté à la whitelist`,
         })
       } else {
         toast({
@@ -87,23 +88,23 @@ export default function WhitelistManager() {
     }
   }
 
-  const removeFromWhitelist = async (userId: string) => {
+  const removeServer = async (gameId: string) => {
     try {
       const response = await fetch("/api/whitelist", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ gameId }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        setWhitelistIds(data.whitelist)
+        setServers(data.servers)
         toast({
           title: "Succès",
-          description: `ID ${userId} retiré de la whitelist`,
+          description: `Serveur ${gameId} retiré de la whitelist`,
         })
       } else {
         toast({
@@ -136,10 +137,10 @@ export default function WhitelistManager() {
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="p-6">
             <div className="flex items-center space-x-2">
-              <Users className="h-8 w-8 text-blue-400" />
+              <Server className="h-8 w-8 text-blue-400" />
               <div>
-                <p className="text-2xl font-bold text-white">{whitelistIds.length}</p>
-                <p className="text-slate-400">IDs Whitelistés</p>
+                <p className="text-2xl font-bold text-white">{servers.length}</p>
+                <p className="text-slate-400">Serveurs Autorisés</p>
               </div>
             </div>
           </CardContent>
@@ -170,52 +171,60 @@ export default function WhitelistManager() {
         </Card>
       </div>
 
-      {/* Ajouter un ID */}
+      {/* Ajouter un serveur */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Plus className="h-5 w-5" />
-            Ajouter un ID à la Whitelist
+            Ajouter un Serveur à la Whitelist
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4">
             <Input
-              placeholder="ID Roblox (ex: 123456789)"
-              value={newId}
-              onChange={(e) => setNewId(e.target.value)}
+              placeholder="Game ID (ex: 123456789)"
+              value={newGameId}
+              onChange={(e) => setNewGameId(e.target.value)}
               className="bg-slate-700 border-slate-600 text-white"
-              onKeyPress={(e) => e.key === "Enter" && addToWhitelist()}
+              onKeyPress={(e) => e.key === "Enter" && addServer()}
             />
-            <Button onClick={addToWhitelist} disabled={loading} className="bg-purple-600 hover:bg-purple-700">
+            <Button onClick={addServer} disabled={loading} className="bg-purple-600 hover:bg-purple-700">
               {loading ? "Ajout..." : "Ajouter"}
             </Button>
           </div>
+          <p className="text-slate-400 text-sm mt-2">
+            Le Game ID se trouve dans l'URL de votre jeu Roblox ou via game.GameId dans le script
+          </p>
         </CardContent>
       </Card>
 
-      {/* Liste des IDs */}
+      {/* Liste des serveurs */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
-          <CardTitle className="text-white">IDs Whitelistés</CardTitle>
+          <CardTitle className="text-white">Serveurs Whitelistés</CardTitle>
         </CardHeader>
         <CardContent>
-          {whitelistIds.length === 0 ? (
-            <p className="text-slate-400 text-center py-8">Aucun ID dans la whitelist</p>
+          {servers.length === 0 ? (
+            <p className="text-slate-400 text-center py-8">Aucun serveur dans la whitelist</p>
           ) : (
             <div className="space-y-3">
-              {whitelistIds.map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg">
+              {servers.map((server) => (
+                <div key={server.gameId} className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <Badge variant="secondary" className="bg-purple-600/20 text-purple-300">
-                      {entry.id}
+                      {server.gameId}
                     </Badge>
-                    {entry.username && <span className="text-slate-300">{entry.username}</span>}
+                    {server.gameName && <span className="text-slate-300">{server.gameName}</span>}
                     <span className="text-slate-500 text-sm">
-                      Ajouté le {new Date(entry.addedAt).toLocaleDateString("fr-FR")}
+                      Ajouté le {new Date(server.addedAt).toLocaleDateString("fr-FR")}
                     </span>
+                    {server.lastCheck && (
+                      <span className="text-slate-500 text-sm">
+                        Dernière vérif: {new Date(server.lastCheck).toLocaleString("fr-FR")}
+                      </span>
+                    )}
                   </div>
-                  <Button variant="destructive" size="sm" onClick={() => removeFromWhitelist(entry.id)}>
+                  <Button variant="destructive" size="sm" onClick={() => removeServer(server.gameId)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -237,7 +246,7 @@ export default function WhitelistManager() {
               <li>Copiez le script fourni dans ServerScriptService</li>
               <li>Modifiez l'URL de l'API avec votre domaine</li>
               <li>Activez "Allow HTTP Requests" dans les paramètres du jeu</li>
-              <li>Le script vérifiera automatiquement chaque joueur qui rejoint</li>
+              <li>Le script vérifiera automatiquement si le serveur est autorisé</li>
             </ol>
             <div className="bg-slate-900/50 p-4 rounded-lg mt-4">
               <p className="text-sm text-slate-400">
