@@ -1,86 +1,100 @@
-interface WhitelistServer {
-  gameId: string
-  gameName?: string
-  addedAt: string
-  lastCheck?: string
-}
+import { type NextRequest, NextResponse } from "next/server"
+import { WhitelistStorage } from "@/lib/whitelist-storage"
 
-class WhitelistStorageClass {
-  private servers: WhitelistServer[] = []
-
-  // Ajouter un serveur
-  addServer(gameId: string, gameName?: string): boolean {
-    if (this.servers.some(s => s.gameId === gameId)) {
-      return false // Déjà existant
-    }
-
-    this.servers.push({
-      gameId,
-      gameName,
-      addedAt: new Date().toISOString()
-    })
-
-    console.log(`[WHITELIST] Serveur ajouté: ${gameId}`)
-    this.debug()
-    return true
-  }
-
-  // Supprimer un serveur
-  removeServer(gameId: string): boolean {
-    const initialLength = this.servers.length
-    this.servers = this.servers.filter(s => s.gameId !== gameId)
+export async function GET(request: NextRequest) {
+  try {
+    console.log("[API] GET /api/whitelist/check - Vérification d'un serveur")
     
-    const removed = this.servers.length < initialLength
-    if (removed) {
-      console.log(`[WHITELIST] Serveur supprimé: ${gameId}`)
-      this.debug()
+    const { searchParams } = new URL(request.url)
+    const gameId = searchParams.get("gameId")
+
+    console.log("[API] Game ID reçu:", gameId)
+
+    if (!gameId) {
+      console.log("[API] Game ID manquant dans les paramètres")
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Game ID requis dans les paramètres de l'URL (?gameId=123456)" 
+        }, 
+        { status: 400 }
+      )
     }
-    return removed
-  }
 
-  // Vérifier si un serveur est whitelisté
-  isWhitelisted(gameId: string): boolean {
-    const found = this.servers.some(s => s.gameId === gameId)
-    console.log(`[WHITELIST] Vérification ${gameId}: ${found ? 'AUTORISÉ' : 'REFUSÉ'}`)
-    return found
-  }
+    WhitelistStorage.debug()
+    const isWhitelisted = WhitelistStorage.isWhitelisted(gameId)
 
-  // Mettre à jour la dernière vérification
-  updateLastCheck(gameId: string): void {
-    const server = this.servers.find(s => s.gameId === gameId)
-    if (server) {
-      server.lastCheck = new Date().toISOString()
-      console.log(`[WHITELIST] Dernière vérification mise à jour pour: ${gameId}`)
+    if (isWhitelisted) {
+      WhitelistStorage.updateLastCheck(gameId)
     }
-  }
 
-  // Obtenir tous les serveurs
-  getAllServers(): WhitelistServer[] {
-    return [...this.servers]
-  }
-
-  // Debug - afficher l'état actuel
-  debug(): void {
-    console.log(`[WHITELIST] État actuel: ${this.servers.length} serveurs`)
-    this.servers.forEach(server => {
-      console.log(`  - ${server.gameId} (${server.gameName || 'Sans nom'})`)
-    })
-  }
-
-  // Obtenir les statistiques
-  getStats() {
-    return {
-      total: this.servers.length,
-      withLastCheck: this.servers.filter(s => s.lastCheck).length,
-      recentChecks: this.servers.filter(s => {
-        if (!s.lastCheck) return false
-        const checkTime = new Date(s.lastCheck).getTime()
-        const now = Date.now()
-        return (now - checkTime) < 24 * 60 * 60 * 1000 // Dernières 24h
-      }).length
+    const response = {
+      success: true,
+      gameId: gameId,
+      whitelisted: isWhitelisted,
+      timestamp: new Date().toISOString(),
     }
+
+    console.log("[API] GET /api/whitelist/check - Réponse:", response)
+    return NextResponse.json(response)
+  } catch (error) {
+    console.error("[API] Erreur GET check whitelist:", error)
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: "Erreur serveur lors de la vérification",
+        details: error instanceof Error ? error.message : "Erreur inconnue"
+      }, 
+      { status: 500 }
+    )
   }
 }
 
-// Instance singleton
-export const WhitelistStorage = new WhitelistStorageClass()
+export async function POST(request: NextRequest) {
+  try {
+    console.log("[API] POST /api/whitelist/check - Vérification d'un serveur")
+    
+    const body = await request.json()
+    console.log("[API] Corps de la requête:", body)
+    
+    const { gameId } = body
+
+    if (!gameId) {
+      console.log("[API] Game ID manquant dans le corps")
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Game ID requis dans le corps de la requête" 
+        }, 
+        { status: 400 }
+      )
+    }
+
+    WhitelistStorage.debug()
+    const isWhitelisted = WhitelistStorage.isWhitelisted(gameId)
+
+    if (isWhitelisted) {
+      WhitelistStorage.updateLastCheck(gameId)
+    }
+
+    const response = {
+      success: true,
+      gameId: gameId,
+      whitelisted: isWhitelisted,
+      timestamp: new Date().toISOString(),
+    }
+
+    console.log("[API] POST /api/whitelist/check - Réponse:", response)
+    return NextResponse.json(response)
+  } catch (error) {
+    console.error("[API] Erreur POST check whitelist:", error)
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: "Erreur serveur lors de la vérification",
+        details: error instanceof Error ? error.message : "Erreur inconnue"
+      }, 
+      { status: 500 }
+    )
+  }
+}
