@@ -1,73 +1,86 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { WhitelistStorage } from "@/lib/whitelist-storage"
+interface WhitelistServer {
+  gameId: string
+  gameName?: string
+  addedAt: string
+  lastCheck?: string
+}
 
-export async function GET() {
-  try {
-    const servers = WhitelistStorage.getAll()
+class WhitelistStorageClass {
+  private servers: WhitelistServer[] = []
 
-    return NextResponse.json({
-      success: true,
-      servers: servers,
-      count: servers.length,
+  // Ajouter un serveur
+  addServer(gameId: string, gameName?: string): boolean {
+    if (this.servers.some(s => s.gameId === gameId)) {
+      return false // Déjà existant
+    }
+
+    this.servers.push({
+      gameId,
+      gameName,
+      addedAt: new Date().toISOString()
     })
-  } catch (error) {
-    console.error("Erreur GET whitelist:", error)
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+
+    console.log(`[WHITELIST] Serveur ajouté: ${gameId}`)
+    this.debug()
+    return true
+  }
+
+  // Supprimer un serveur
+  removeServer(gameId: string): boolean {
+    const initialLength = this.servers.length
+    this.servers = this.servers.filter(s => s.gameId !== gameId)
+    
+    const removed = this.servers.length < initialLength
+    if (removed) {
+      console.log(`[WHITELIST] Serveur supprimé: ${gameId}`)
+      this.debug()
+    }
+    return removed
+  }
+
+  // Vérifier si un serveur est whitelisté
+  isWhitelisted(gameId: string): boolean {
+    const found = this.servers.some(s => s.gameId === gameId)
+    console.log(`[WHITELIST] Vérification ${gameId}: ${found ? 'AUTORISÉ' : 'REFUSÉ'}`)
+    return found
+  }
+
+  // Mettre à jour la dernière vérification
+  updateLastCheck(gameId: string): void {
+    const server = this.servers.find(s => s.gameId === gameId)
+    if (server) {
+      server.lastCheck = new Date().toISOString()
+      console.log(`[WHITELIST] Dernière vérification mise à jour pour: ${gameId}`)
+    }
+  }
+
+  // Obtenir tous les serveurs
+  getAllServers(): WhitelistServer[] {
+    return [...this.servers]
+  }
+
+  // Debug - afficher l'état actuel
+  debug(): void {
+    console.log(`[WHITELIST] État actuel: ${this.servers.length} serveurs`)
+    this.servers.forEach(server => {
+      console.log(`  - ${server.gameId} (${server.gameName || 'Sans nom'})`)
+    })
+  }
+
+  // Obtenir les statistiques
+  getStats() {
+    return {
+      total: this.servers.length,
+      withLastCheck: this.servers.filter(s => s.lastCheck).length,
+      recentChecks: this.servers.filter(s => {
+        if (!s.lastCheck) return false
+        const checkTime = new Date(s.lastCheck).getTime()
+        const now = Date.now()
+        return (now - checkTime) < 24 * 60 * 60 * 1000 // Dernières 24h
+      }).length
+    }
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const { gameId, gameName } = await request.json()
-
-    if (!gameId || typeof gameId !== "string") {
-      return NextResponse.json({ error: "Game ID requis" }, { status: 400 })
-    }
-
-    console.log("Tentative d'ajout du serveur:", gameId)
-
-    const servers = WhitelistStorage.add(gameId.trim(), gameName?.trim())
-
-    return NextResponse.json({
-      success: true,
-      message: "Serveur ajouté à la whitelist",
-      servers: servers,
-    })
-  } catch (error) {
-    console.error("Erreur POST whitelist:", error)
-
-    if (error instanceof Error && error.message === "Serveur déjà dans la whitelist") {
-      return NextResponse.json({ error: error.message }, { status: 409 })
-    }
-
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const { gameId } = await request.json()
-
-    if (!gameId) {
-      return NextResponse.json({ error: "Game ID requis" }, { status: 400 })
-    }
-
-    console.log("Tentative de suppression du serveur:", gameId)
-
-    const servers = WhitelistStorage.remove(gameId)
-
-    return NextResponse.json({
-      success: true,
-      message: "Serveur retiré de la whitelist",
-      servers: servers,
-    })
-  } catch (error) {
-    console.error("Erreur DELETE whitelist:", error)
-
-    if (error instanceof Error && error.message === "Serveur non trouvé") {
-      return NextResponse.json({ error: error.message }, { status: 404 })
-    }
-
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
-  }
-}
+// Instance singleton
+export const WhitelistStorage = new WhitelistStorageClass()

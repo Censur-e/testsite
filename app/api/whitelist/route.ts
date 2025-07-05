@@ -1,22 +1,36 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { WhitelistStorage } from "@/lib/whitelist-storage"
 
-// Stockage temporaire en mémoire (remplacer par une base de données en production)
-let servers: Array<{
-  gameId: string
-  gameName?: string
-  addedAt: string
-  lastCheck?: string
-}> = []
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    return NextResponse.json({
+    const { searchParams } = new URL(request.url)
+    const gameId = searchParams.get("gameId")
+
+    if (!gameId) {
+      return NextResponse.json({ error: "Game ID requis" }, { status: 400 })
+    }
+
+    console.log("🔍 [API] Vérification GET pour Game ID:", gameId)
+    WhitelistStorage.debug()
+
+    const isWhitelisted = WhitelistStorage.isWhitelisted(gameId)
+
+    if (isWhitelisted) {
+      WhitelistStorage.updateLastCheck(gameId)
+    }
+
+    const response = {
       success: true,
-      servers: servers,
-      count: servers.length,
-    })
+      gameId: gameId,
+      whitelisted: isWhitelisted,
+      timestamp: new Date().toISOString(),
+    }
+
+    console.log("📤 [API] Réponse GET:", response)
+
+    return NextResponse.json(response)
   } catch (error) {
-    console.error("Erreur GET whitelist:", error)
+    console.error("❌ [API] Erreur GET check whitelist:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
 }
@@ -25,57 +39,31 @@ export async function POST(request: NextRequest) {
   try {
     const { gameId } = await request.json()
 
-    if (!gameId || typeof gameId !== "string") {
-      return NextResponse.json({ error: "Game ID requis" }, { status: 400 })
-    }
-
-    // Vérifier si le Game ID existe déjà
-    if (servers.some((server) => server.gameId === gameId)) {
-      return NextResponse.json({ error: "Serveur déjà dans la whitelist" }, { status: 409 })
-    }
-
-    // Ajouter à la whitelist
-    const newServer = {
-      gameId: gameId,
-      addedAt: new Date().toISOString(),
-    }
-
-    servers.push(newServer)
-
-    return NextResponse.json({
-      success: true,
-      message: "Serveur ajouté à la whitelist",
-      servers: servers,
-    })
-  } catch (error) {
-    console.error("Erreur POST whitelist:", error)
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const { gameId } = await request.json()
-
     if (!gameId) {
       return NextResponse.json({ error: "Game ID requis" }, { status: 400 })
     }
 
-    // Supprimer de la whitelist
-    const initialLength = servers.length
-    servers = servers.filter((server) => server.gameId !== gameId)
+    console.log("🔍 [API] Vérification POST pour Game ID:", gameId)
+    WhitelistStorage.debug()
 
-    if (servers.length === initialLength) {
-      return NextResponse.json({ error: "Serveur non trouvé dans la whitelist" }, { status: 404 })
+    const isWhitelisted = WhitelistStorage.isWhitelisted(gameId)
+
+    if (isWhitelisted) {
+      WhitelistStorage.updateLastCheck(gameId)
     }
 
-    return NextResponse.json({
+    const response = {
       success: true,
-      message: "Serveur retiré de la whitelist",
-      servers: servers,
-    })
+      gameId: gameId,
+      whitelisted: isWhitelisted,
+      timestamp: new Date().toISOString(),
+    }
+
+    console.log("📤 [API] Réponse POST:", response)
+
+    return NextResponse.json(response)
   } catch (error) {
-    console.error("Erreur DELETE whitelist:", error)
+    console.error("❌ [API] Erreur POST check whitelist:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
 }

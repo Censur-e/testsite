@@ -1,77 +1,86 @@
-// Système de stockage partagé pour la whitelist
-interface ServerEntry {
+interface WhitelistServer {
   gameId: string
   gameName?: string
   addedAt: string
   lastCheck?: string
 }
 
-// Stockage en mémoire (remplacer par une base de données en production)
-let servers: ServerEntry[] = []
-
-export const WhitelistStorage = {
-  // Obtenir tous les serveurs
-  getAll(): ServerEntry[] {
-    return [...servers]
-  },
+class WhitelistStorageClass {
+  private servers: WhitelistServer[] = []
 
   // Ajouter un serveur
-  add(gameId: string, gameName?: string): ServerEntry[] {
-    // Vérifier si existe déjà
-    if (servers.some((server) => server.gameId === gameId)) {
-      throw new Error("Serveur déjà dans la whitelist")
+  addServer(gameId: string, gameName?: string): boolean {
+    if (this.servers.some(s => s.gameId === gameId)) {
+      return false // Déjà existant
     }
 
-    const newServer: ServerEntry = {
+    this.servers.push({
       gameId,
       gameName,
-      addedAt: new Date().toISOString(),
-    }
+      addedAt: new Date().toISOString()
+    })
 
-    servers.push(newServer)
-    console.log("Serveur ajouté:", newServer)
-    console.log("Liste complète:", servers)
-    return [...servers]
-  },
+    console.log(`[WHITELIST] Serveur ajouté: ${gameId}`)
+    this.debug()
+    return true
+  }
 
   // Supprimer un serveur
-  remove(gameId: string): ServerEntry[] {
-    const initialLength = servers.length
-    servers = servers.filter((server) => server.gameId !== gameId)
-
-    if (servers.length === initialLength) {
-      throw new Error("Serveur non trouvé")
+  removeServer(gameId: string): boolean {
+    const initialLength = this.servers.length
+    this.servers = this.servers.filter(s => s.gameId !== gameId)
+    
+    const removed = this.servers.length < initialLength
+    if (removed) {
+      console.log(`[WHITELIST] Serveur supprimé: ${gameId}`)
+      this.debug()
     }
-
-    console.log("Serveur supprimé:", gameId)
-    console.log("Liste complète:", servers)
-    return [...servers]
-  },
+    return removed
+  }
 
   // Vérifier si un serveur est whitelisté
   isWhitelisted(gameId: string): boolean {
-    const isListed = servers.some((server) => server.gameId === gameId)
-    console.log(`Vérification whitelist pour ${gameId}:`, isListed)
-    console.log(
-      "Serveurs dans la liste:",
-      servers.map((s) => s.gameId),
-    )
-    return isListed
-  },
+    const found = this.servers.some(s => s.gameId === gameId)
+    console.log(`[WHITELIST] Vérification ${gameId}: ${found ? 'AUTORISÉ' : 'REFUSÉ'}`)
+    return found
+  }
 
   // Mettre à jour la dernière vérification
   updateLastCheck(gameId: string): void {
-    const serverIndex = servers.findIndex((server) => server.gameId === gameId)
-    if (serverIndex !== -1) {
-      servers[serverIndex].lastCheck = new Date().toISOString()
+    const server = this.servers.find(s => s.gameId === gameId)
+    if (server) {
+      server.lastCheck = new Date().toISOString()
+      console.log(`[WHITELIST] Dernière vérification mise à jour pour: ${gameId}`)
     }
-  },
+  }
 
-  // Debug: afficher l'état actuel
+  // Obtenir tous les serveurs
+  getAllServers(): WhitelistServer[] {
+    return [...this.servers]
+  }
+
+  // Debug - afficher l'état actuel
   debug(): void {
-    console.log("=== WHITELIST DEBUG ===")
-    console.log("Nombre de serveurs:", servers.length)
-    console.log("Serveurs:", servers)
-    console.log("======================")
-  },
+    console.log(`[WHITELIST] État actuel: ${this.servers.length} serveurs`)
+    this.servers.forEach(server => {
+      console.log(`  - ${server.gameId} (${server.gameName || 'Sans nom'})`)
+    })
+  }
+
+  // Obtenir les statistiques
+  getStats() {
+    return {
+      total: this.servers.length,
+      withLastCheck: this.servers.filter(s => s.lastCheck).length,
+      recentChecks: this.servers.filter(s => {
+        if (!s.lastCheck) return false
+        const checkTime = new Date(s.lastCheck).getTime()
+        const now = Date.now()
+        return (now - checkTime) < 24 * 60 * 60 * 1000 // Dernières 24h
+      }).length
+    }
+  }
 }
+
+// Instance singleton
+export const WhitelistStorage = new WhitelistStorageClass()
