@@ -1,11 +1,15 @@
-import ServerMonitor from "./ServerMonitor"
-import type { Metadata } from "next"
+import WhitelistManager from "./WhitelistManager"
 
-export const metadata: Metadata = {
-  title: "Obsidian - Monitoring Serveurs",
-  description: "Surveillance en temps réel des serveurs Roblox",
-}
-
-export default function ServerPage() {
-  return <ServerMonitor />
+export default function ServeurPage() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-4">Gestion Whitelist Roblox</h1>
+          <p className="text-slate-300">Gérez les IDs Roblox autorisés à accéder à vos serveurs</p>
+        </div>
+        <WhitelistManager />
+      </div>
+    </div>
+  )
 }
