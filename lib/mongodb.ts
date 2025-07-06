@@ -56,7 +56,7 @@ class MongoDBConnection {
   private readonly MONGODB_URI =
     process.env.MONGODB_URI ||
     "mongodb+srv://hugodubois1462:6TGH1fatWZWr1EWs@obsidiansite.nyg5yqu.mongodb.net/?retryWrites=true&w=majority&appName=ObsidianSite&connectTimeoutMS=5000&serverSelectionTimeoutMS=5000"
-  private readonly DB_NAME = "Obsidian Whitelist"
+  private readonly DB_NAME = "ObsidianWhitelist"
   private readonly COLLECTION_NAME = "servers"
 
   constructor() {
