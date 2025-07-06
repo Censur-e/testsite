@@ -4,7 +4,10 @@ import { WhitelistStorage } from "@/lib/whitelist-storage"
 export async function GET() {
   try {
     console.log("[API] GET /api/whitelist - Récupération des serveurs")
-    
+
+    // Forcer le rechargement des données depuis le JSON
+    await WhitelistStorage.reload()
+
     const servers = WhitelistStorage.getAllServers()
     const stats = WhitelistStorage.getStats()
 
@@ -13,6 +16,7 @@ export async function GET() {
       servers,
       stats,
       timestamp: new Date().toISOString(),
+      filePath: WhitelistStorage.getFilePath(),
     }
 
     console.log("[API] GET /api/whitelist - Réponse:", response)
@@ -20,12 +24,12 @@ export async function GET() {
   } catch (error) {
     console.error("[API] Erreur GET whitelist:", error)
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: "Erreur serveur lors de la récupération des serveurs",
-        details: error instanceof Error ? error.message : "Erreur inconnue"
-      }, 
-      { status: 500 }
+        details: error instanceof Error ? error.message : "Erreur inconnue",
+      },
+      { status: 500 },
     )
   }
 }
@@ -33,33 +37,33 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     console.log("[API] POST /api/whitelist - Ajout d'un serveur")
-    
+
     const body = await request.json()
     console.log("[API] Corps de la requête:", body)
-    
+
     const { gameId, gameName } = body
 
     if (!gameId || typeof gameId !== "string") {
       console.log("[API] Game ID manquant ou invalide")
       return NextResponse.json(
-        { 
-          success: false, 
-          error: "Game ID requis et doit être une chaîne de caractères" 
-        }, 
-        { status: 400 }
+        {
+          success: false,
+          error: "Game ID requis et doit être une chaîne de caractères",
+        },
+        { status: 400 },
       )
     }
 
-    const result = WhitelistStorage.addServer(gameId.trim(), gameName?.trim())
+    const result = await WhitelistStorage.addServer(gameId.trim(), gameName?.trim())
 
     if (!result.success) {
       console.log("[API] Échec de l'ajout:", result.error)
       return NextResponse.json(
-        { 
-          success: false, 
-          error: result.error 
-        }, 
-        { status: 409 }
+        {
+          success: false,
+          error: result.error,
+        },
+        { status: 409 },
       )
     }
 
@@ -75,12 +79,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[API] Erreur POST whitelist:", error)
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: "Erreur serveur lors de l'ajout du serveur",
-        details: error instanceof Error ? error.message : "Erreur inconnue"
-      }, 
-      { status: 500 }
+        details: error instanceof Error ? error.message : "Erreur inconnue",
+      },
+      { status: 500 },
     )
   }
 }
@@ -88,33 +92,33 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     console.log("[API] DELETE /api/whitelist - Suppression d'un serveur")
-    
+
     const body = await request.json()
     console.log("[API] Corps de la requête:", body)
-    
+
     const { gameId } = body
 
     if (!gameId) {
       console.log("[API] Game ID manquant")
       return NextResponse.json(
-        { 
-          success: false, 
-          error: "Game ID requis" 
-        }, 
-        { status: 400 }
+        {
+          success: false,
+          error: "Game ID requis",
+        },
+        { status: 400 },
       )
     }
 
-    const result = WhitelistStorage.removeServer(gameId)
+    const result = await WhitelistStorage.removeServer(gameId)
 
     if (!result.success) {
       console.log("[API] Échec de la suppression:", result.error)
       return NextResponse.json(
-        { 
-          success: false, 
-          error: result.error 
-        }, 
-        { status: 404 }
+        {
+          success: false,
+          error: result.error,
+        },
+        { status: 404 },
       )
     }
 
@@ -129,12 +133,12 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error("[API] Erreur DELETE whitelist:", error)
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: "Erreur serveur lors de la suppression du serveur",
-        details: error instanceof Error ? error.message : "Erreur inconnue"
-      }, 
-      { status: 500 }
+        details: error instanceof Error ? error.message : "Erreur inconnue",
+      },
+      { status: 500 },
     )
   }
 }

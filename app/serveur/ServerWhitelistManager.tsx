@@ -1,11 +1,25 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, Plus, RefreshCw, TestTube, Server, Shield, Clock, Copy } from 'lucide-react'
+import {
+  Trash2,
+  Plus,
+  RefreshCw,
+  TestTube,
+  Server,
+  Shield,
+  Clock,
+  Copy,
+  AlertCircle,
+  Download,
+  Upload,
+} from "lucide-react"
 
 interface WhitelistServer {
   gameId: string
@@ -21,22 +35,23 @@ export default function ServerWhitelistManager() {
   const [loading, setLoading] = useState(false)
   const [testResults, setTestResults] = useState<Record<string, boolean>>({})
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   // Charger les serveurs
   const loadServers = async () => {
     try {
       setError(null)
       console.log("Chargement des serveurs...")
-      
+
       const response = await fetch("/api/whitelist", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
       })
-      
+
       console.log("Réponse GET:", response.status, response.statusText)
-      
+
       if (response.ok) {
         const data = await response.json()
         console.log("Données reçues:", data)
@@ -61,14 +76,15 @@ export default function ServerWhitelistManager() {
 
     setLoading(true)
     setError(null)
-    
+    setSuccess(null)
+
     try {
       console.log("Ajout du serveur:", newGameId.trim())
-      
+
       const response = await fetch("/api/whitelist", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json" 
+        headers: {
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           gameId: newGameId.trim(),
@@ -83,6 +99,7 @@ export default function ServerWhitelistManager() {
         console.log("Serveur ajouté:", data)
         setNewGameId("")
         setNewGameName("")
+        setSuccess(`Serveur ${newGameId.trim()} ajouté avec succès !`)
         await loadServers()
       } else {
         const errorData = await response.json()
@@ -102,18 +119,20 @@ export default function ServerWhitelistManager() {
 
     try {
       setError(null)
+      setSuccess(null)
       console.log("Suppression du serveur:", gameId)
-      
+
       const response = await fetch("/api/whitelist", {
         method: "DELETE",
-        headers: { 
-          "Content-Type": "application/json" 
+        headers: {
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ gameId }),
       })
 
       if (response.ok) {
         console.log("Serveur supprimé")
+        setSuccess(`Serveur ${gameId} supprimé avec succès !`)
         await loadServers()
       } else {
         const errorData = await response.json()
@@ -130,7 +149,7 @@ export default function ServerWhitelistManager() {
     try {
       setError(null)
       console.log("Test du serveur:", gameId)
-      
+
       const response = await fetch(`/api/whitelist/check?gameId=${gameId}`)
       const data = await response.json()
 
@@ -152,6 +171,56 @@ export default function ServerWhitelistManager() {
       console.error("Erreur test serveur:", error)
       setError("Erreur lors du test du serveur")
     }
+  }
+
+  // Exporter les données
+  const exportData = async () => {
+    try {
+      const response = await fetch("/api/whitelist/export")
+      if (response.ok) {
+        const data = await response.json()
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `obsidian-whitelist-${new Date().toISOString().split("T")[0]}.json`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        setSuccess("Données exportées avec succès !")
+      }
+    } catch (error) {
+      setError("Erreur lors de l'export")
+    }
+  }
+
+  // Importer les données
+  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      try {
+        const jsonData = JSON.parse(e.target?.result as string)
+        const response = await fetch("/api/whitelist/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(jsonData),
+        })
+
+        if (response.ok) {
+          setSuccess("Données importées avec succès !")
+          await loadServers()
+        } else {
+          setError("Erreur lors de l'import")
+        }
+      } catch (error) {
+        setError("Fichier JSON invalide")
+      }
+    }
+    reader.readAsText(file)
   }
 
   // Copier le script Roblox
@@ -313,8 +382,19 @@ _G.ObsidianWhitelist = {
 logMessage("Système de whitelist Obsidian initialisé avec succès", "success")`
 
     navigator.clipboard.writeText(script)
-    alert("Script copié dans le presse-papiers !")
+    setSuccess("Script copié dans le presse-papiers !")
   }
+
+  // Effacer les messages après 5 secondes
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError(null)
+        setSuccess(null)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [error, success])
 
   useEffect(() => {
     loadServers()
@@ -326,11 +406,21 @@ logMessage("Système de whitelist Obsidian initialisé avec succès", "success")
 
   return (
     <div className="space-y-6">
-      {/* Affichage des erreurs */}
+      {/* Messages d'erreur et de succès */}
       {error && (
         <Card className="bg-red-900/50 border-red-700">
-          <CardContent className="p-4">
+          <CardContent className="p-4 flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-400" />
             <p className="text-red-300">❌ {error}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {success && (
+        <Card className="bg-green-900/50 border-green-700">
+          <CardContent className="p-4 flex items-center gap-2">
+            <Shield className="h-5 w-5 text-green-400" />
+            <p className="text-green-300">✅ {success}</p>
           </CardContent>
         </Card>
       )}
@@ -392,6 +482,7 @@ logMessage("Système de whitelist Obsidian initialisé avec succès", "success")
                 value={newGameId}
                 onChange={(e) => setNewGameId(e.target.value)}
                 className="bg-slate-700 border-slate-600 text-white"
+                onKeyPress={(e) => e.key === "Enter" && addServer()}
               />
             </div>
             <div>
@@ -402,10 +493,11 @@ logMessage("Système de whitelist Obsidian initialisé avec succès", "success")
                 value={newGameName}
                 onChange={(e) => setNewGameName(e.target.value)}
                 className="bg-slate-700 border-slate-600 text-white"
+                onKeyPress={(e) => e.key === "Enter" && addServer()}
               />
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               onClick={addServer}
               disabled={loading || !newGameId.trim()}
@@ -421,6 +513,27 @@ logMessage("Système de whitelist Obsidian initialisé avec succès", "success")
               <RefreshCw className="h-4 w-4 mr-2" />
               Actualiser
             </Button>
+            <Button
+              onClick={exportData}
+              variant="outline"
+              className="border-blue-600 text-blue-300 hover:bg-blue-600/20 bg-transparent"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Exporter
+            </Button>
+            <label className="cursor-pointer">
+              <Button
+                variant="outline"
+                className="border-green-600 text-green-300 hover:bg-green-600/20 bg-transparent"
+                asChild
+              >
+                <span>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importer
+                </span>
+              </Button>
+              <input type="file" accept=".json" onChange={importData} className="hidden" />
+            </label>
           </div>
         </CardContent>
       </Card>
@@ -527,9 +640,7 @@ logMessage("Système de whitelist Obsidian initialisé avec succès", "success")
             <p className="text-sm font-mono text-green-400">
               URL API: {typeof window !== "undefined" ? window.location.origin : ""}/api/whitelist/check
             </p>
-            <p className="text-sm font-mono text-blue-400 mt-1">
-              Méthode: GET avec paramètre ?gameId=123456789
-            </p>
+            <p className="text-sm font-mono text-blue-400 mt-1">Méthode: GET avec paramètre ?gameId=123456789</p>
           </div>
         </CardContent>
       </Card>

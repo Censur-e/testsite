@@ -1,3 +1,6 @@
+import { promises as fs } from "fs"
+import path from "path"
+
 interface WhitelistServer {
   gameId: string
   gameName?: string
@@ -5,13 +8,77 @@ interface WhitelistServer {
   lastCheck?: string
 }
 
+interface StorageData {
+  servers: WhitelistServer[]
+  lastSaved: string
+  version: string
+}
+
 class WhitelistStorageClass {
   private servers: WhitelistServer[] = []
+  private readonly JSON_FILE_PATH = path.join(process.cwd(), "data", "whitelist.json")
+  private readonly VERSION = "1.0"
+
+  constructor() {
+    this.loadFromJSON()
+  }
+
+  // Créer le dossier data s'il n'existe pas
+  private async ensureDataDirectory(): Promise<void> {
+    const dataDir = path.dirname(this.JSON_FILE_PATH)
+    try {
+      await fs.access(dataDir)
+    } catch {
+      await fs.mkdir(dataDir, { recursive: true })
+      console.log("[STORAGE] Dossier data créé")
+    }
+  }
+
+  // Charger depuis le fichier JSON
+  private async loadFromJSON(): Promise<void> {
+    try {
+      await this.ensureDataDirectory()
+
+      const data = await fs.readFile(this.JSON_FILE_PATH, "utf-8")
+      const parsedData: StorageData = JSON.parse(data)
+
+      this.servers = parsedData.servers || []
+      console.log(`[STORAGE] Chargé ${this.servers.length} serveurs depuis ${this.JSON_FILE_PATH}`)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        console.log("[STORAGE] Fichier whitelist.json non trouvé, création d'un nouveau")
+        this.servers = []
+        await this.saveToJSON()
+      } else {
+        console.error("[STORAGE] Erreur lors du chargement:", error)
+        this.servers = []
+      }
+    }
+  }
+
+  // Sauvegarder dans le fichier JSON
+  private async saveToJSON(): Promise<void> {
+    try {
+      await this.ensureDataDirectory()
+
+      const data: StorageData = {
+        servers: this.servers,
+        lastSaved: new Date().toISOString(),
+        version: this.VERSION,
+      }
+
+      await fs.writeFile(this.JSON_FILE_PATH, JSON.stringify(data, null, 2), "utf-8")
+      console.log(`[STORAGE] ${this.servers.length} serveurs sauvegardés dans ${this.JSON_FILE_PATH}`)
+    } catch (error) {
+      console.error("[STORAGE] Erreur lors de la sauvegarde:", error)
+      throw error
+    }
+  }
 
   // Ajouter un serveur
-  addServer(gameId: string, gameName?: string): { success: boolean; error?: string } {
+  async addServer(gameId: string, gameName?: string): Promise<{ success: boolean; error?: string }> {
     console.log(`[STORAGE] Tentative d'ajout du serveur: ${gameId}`)
-    
+
     if (this.servers.some((s) => s.gameId === gameId)) {
       console.log(`[STORAGE] Serveur ${gameId} déjà existant`)
       return { success: false, error: "Serveur déjà existant" }
@@ -24,16 +91,25 @@ class WhitelistStorageClass {
     }
 
     this.servers.push(newServer)
-    console.log(`[STORAGE] Serveur ajouté: ${gameId}`)
-    this.debug()
-    return { success: true }
+
+    try {
+      await this.saveToJSON()
+      console.log(`[STORAGE] Serveur ajouté: ${gameId}`)
+      this.debug()
+      return { success: true }
+    } catch (error) {
+      // Rollback en cas d'erreur
+      this.servers = this.servers.filter((s) => s.gameId !== gameId)
+      return { success: false, error: "Erreur lors de la sauvegarde" }
+    }
   }
 
   // Supprimer un serveur
-  removeServer(gameId: string): { success: boolean; error?: string } {
+  async removeServer(gameId: string): Promise<{ success: boolean; error?: string }> {
     console.log(`[STORAGE] Tentative de suppression du serveur: ${gameId}`)
-    
+
     const initialLength = this.servers.length
+    const backupServers = [...this.servers]
     this.servers = this.servers.filter((s) => s.gameId !== gameId)
 
     if (this.servers.length === initialLength) {
@@ -41,25 +117,37 @@ class WhitelistStorageClass {
       return { success: false, error: "Serveur non trouvé" }
     }
 
-    console.log(`[STORAGE] Serveur supprimé: ${gameId}`)
-    this.debug()
-    return { success: true }
+    try {
+      await this.saveToJSON()
+      console.log(`[STORAGE] Serveur supprimé: ${gameId}`)
+      this.debug()
+      return { success: true }
+    } catch (error) {
+      // Rollback en cas d'erreur
+      this.servers = backupServers
+      return { success: false, error: "Erreur lors de la sauvegarde" }
+    }
   }
 
   // Vérifier si un serveur est whitelisté
   isWhitelisted(gameId: string): boolean {
     const found = this.servers.some((s) => s.gameId === gameId)
     console.log(`[STORAGE] Vérification ${gameId}: ${found ? "AUTORISÉ" : "REFUSÉ"}`)
-    console.log(`[STORAGE] Serveurs disponibles: [${this.servers.map(s => s.gameId).join(', ')}]`)
+    console.log(`[STORAGE] Serveurs disponibles: [${this.servers.map((s) => s.gameId).join(", ")}]`)
     return found
   }
 
   // Mettre à jour la dernière vérification
-  updateLastCheck(gameId: string): void {
+  async updateLastCheck(gameId: string): Promise<void> {
     const server = this.servers.find((s) => s.gameId === gameId)
     if (server) {
       server.lastCheck = new Date().toISOString()
-      console.log(`[STORAGE] Dernière vérification mise à jour pour: ${gameId}`)
+      try {
+        await this.saveToJSON()
+        console.log(`[STORAGE] Dernière vérification mise à jour pour: ${gameId}`)
+      } catch (error) {
+        console.error(`[STORAGE] Erreur mise à jour lastCheck pour ${gameId}:`, error)
+      }
     }
   }
 
@@ -69,12 +157,21 @@ class WhitelistStorageClass {
     return [...this.servers]
   }
 
+  // Forcer le rechargement depuis le fichier JSON
+  async reload(): Promise<void> {
+    console.log("[STORAGE] Rechargement forcé des données")
+    await this.loadFromJSON()
+  }
+
   // Debug - afficher l'état actuel
   debug(): void {
     console.log(`[STORAGE] === ÉTAT ACTUEL ===`)
+    console.log(`[STORAGE] Fichier: ${this.JSON_FILE_PATH}`)
     console.log(`[STORAGE] Nombre de serveurs: ${this.servers.length}`)
     this.servers.forEach((server, index) => {
-      console.log(`[STORAGE] ${index + 1}. ${server.gameId} (${server.gameName || "Sans nom"}) - Ajouté: ${server.addedAt}`)
+      console.log(
+        `[STORAGE] ${index + 1}. ${server.gameId} (${server.gameName || "Sans nom"}) - Ajouté: ${server.addedAt}`,
+      )
     })
     console.log(`[STORAGE] =====================`)
   }
@@ -91,9 +188,38 @@ class WhitelistStorageClass {
         return now - checkTime < 24 * 60 * 60 * 1000 // Dernières 24h
       }).length,
     }
-    
+
     console.log(`[STORAGE] Statistiques:`, stats)
     return stats
+  }
+
+  // Exporter les données (pour backup)
+  exportData(): StorageData {
+    return {
+      servers: [...this.servers],
+      lastSaved: new Date().toISOString(),
+      version: this.VERSION,
+    }
+  }
+
+  // Importer les données (pour restore)
+  async importData(data: StorageData): Promise<boolean> {
+    try {
+      const backupServers = [...this.servers]
+      this.servers = data.servers || []
+
+      await this.saveToJSON()
+      console.log(`[STORAGE] Importé ${this.servers.length} serveurs`)
+      return true
+    } catch (error) {
+      console.error("[STORAGE] Erreur lors de l'import:", error)
+      return false
+    }
+  }
+
+  // Obtenir le chemin du fichier JSON
+  getFilePath(): string {
+    return this.JSON_FILE_PATH
   }
 }
 
