@@ -1,5 +1,13 @@
-import { promises as fs } from "fs"
-import path from "path"
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Trash2, Plus, RefreshCw, TestTube, Server, Shield, Clock, Copy, AlertCircle, Download, Upload, Database, Info } from 'lucide-react'
 
 interface WhitelistServer {
   gameId: string
@@ -8,220 +16,99 @@ interface WhitelistServer {
   lastCheck?: string
 }
 
-interface StorageData {
-  servers: WhitelistServer[]
-  lastSaved: string
-  version: string
-}
+export default function ServerWhitelistManager() {
+  const [servers, setServers] = useState<WhitelistServer[]>([])
+  const [newGameId, setNewGameId] = useState("")
+  const [newGameName, setNewGameName] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [testResults, setTestResults] = useState<Record<string, boolean>>({})
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
-class WhitelistStorageClass {
-  private servers: WhitelistServer[] = []
-  private readonly JSON_FILE_PATH = path.join(process.cwd(), "data", "whitelist.json")
-  private readonly VERSION = "1.0"
-
-  constructor() {
-    this.loadFromJSON()
-  }
-
-  // Créer le dossier data s'il n'existe pas
-  private async ensureDataDirectory(): Promise<void> {
-    const dataDir = path.dirname(this.JSON_FILE_PATH)
-    try {
-      await fs.access(dataDir)
-    } catch {
-      await fs.mkdir(dataDir, { recursive: true })
-      console.log("[STORAGE] Dossier data créé")
-    }
-  }
-
-  // Charger depuis le fichier JSON
-  private async loadFromJSON(): Promise<void> {
-    try {
-      await this.ensureDataDirectory()
-
-      const data = await fs.readFile(this.JSON_FILE_PATH, "utf-8")
-      const parsedData: StorageData = JSON.parse(data)
-
-      this.servers = parsedData.servers || []
-      console.log(`[STORAGE] Chargé ${this.servers.length} serveurs depuis ${this.JSON_FILE_PATH}`)
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        console.log("[STORAGE] Fichier whitelist.json non trouvé, création d'un nouveau")
-        this.servers = []
-        await this.saveToJSON()
-      } else {
-        console.error("[STORAGE] Erreur lors du chargement:", error)
-        this.servers = []
+  // Charger les serveurs depuis le localStorage au démarrage
+  useEffect(() => {
+    const savedServers = localStorage.getItem("obsidian-whitelist-servers")
+    if (savedServers) {
+      try {
+        const parsed = JSON.parse(savedServers)
+        setServers(parsed.servers || [])
+        setSuccess("Données chargées depuis le stockage local")
+      } catch (error) {
+        console.error("Erreur lors du chargement:", error)
       }
     }
-  }
+  }, [])
 
-  // Sauvegarder dans le fichier JSON
-  private async saveToJSON(): Promise<void> {
-    try {
-      await this.ensureDataDirectory()
-
-      const data: StorageData = {
-        servers: this.servers,
+  // Sauvegarder dans le localStorage à chaque changement
+  useEffect(() => {
+    if (servers.length > 0) {
+      const data = {
+        servers,
         lastSaved: new Date().toISOString(),
-        version: this.VERSION,
+        version: "1.0",
       }
+      localStorage.setItem("obsidian-whitelist-servers", JSON.stringify(data))
+    }
+  }, [servers])
 
-      await fs.writeFile(this.JSON_FILE_PATH, JSON.stringify(data, null, 2), "utf-8")
-      console.log(`[STORAGE] ${this.servers.length} serveurs sauvegardés dans ${this.JSON_FILE_PATH}`)
+  // Charger les serveurs depuis l'API
+  const loadServers = async () => {
+    try {
+      setError(null)
+      console.log("Chargement des serveurs...")
+
+      const response = await fetch("/api/whitelist", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      console.log("Réponse GET:", response.status, response.statusText)
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log("Données reçues:", data)
+        setServers(data.servers || [])
+      } else {
+        const errorData = await response.text()
+        console.error("Erreur API:", response.status, errorData)
+        setError(`Erreur ${response.status}: ${errorData}`)
+      }
     } catch (error) {
-      console.error("[STORAGE] Erreur lors de la sauvegarde:", error)
-      throw error
+      console.error("Erreur chargement serveurs:", error)
+      setError("Erreur de connexion lors du chargement")
     }
   }
 
   // Ajouter un serveur
-  async addServer(gameId: string, gameName?: string): Promise<{ success: boolean; error?: string }> {
-    console.log(`[STORAGE] Tentative d'ajout du serveur: ${gameId}`)
-
-    if (this.servers.some((s) => s.gameId === gameId)) {
-      console.log(`[STORAGE] Serveur ${gameId} déjà existant`)
-      return { success: false, error: "Serveur déjà existant" }
+  const addServer = async () => {
+    if (!newGameId.trim()) {
+      setError("Veuillez entrer un Game ID valide")
+      return
     }
 
-    const newServer: WhitelistServer = {
-      gameId,
-      gameName,
-      addedAt: new Date().toISOString(),
+    // Vérifier si le serveur existe déjà
+    if (servers.some((s) => s.gameId === newGameId.trim())) {
+      setError("Ce serveur est déjà dans la whitelist")
+      return
     }
 
-    this.servers.push(newServer)
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
 
     try {
-      await this.saveToJSON()
-      console.log(`[STORAGE] Serveur ajouté: ${gameId}`)
-      this.debug()
-      return { success: true }
-    } catch (error) {
-      // Rollback en cas d'erreur
-      this.servers = this.servers.filter((s) => s.gameId !== gameId)
-      return { success: false, error: "Erreur lors de la sauvegarde" }
-    }
-  }
-
-  // Supprimer un serveur
-  async removeServer(gameId: string): Promise<{ success: boolean; error?: string }> {
-    console.log(`[STORAGE] Tentative de suppression du serveur: ${gameId}`)
-
-    const initialLength = this.servers.length
-    const backupServers = [...this.servers]
-    this.servers = this.servers.filter((s) => s.gameId !== gameId)
-
-    if (this.servers.length === initialLength) {
-      console.log(`[STORAGE] Serveur ${gameId} non trouvé`)
-      return { success: false, error: "Serveur non trouvé" }
-    }
-
-    try {
-      await this.saveToJSON()
-      console.log(`[STORAGE] Serveur supprimé: ${gameId}`)
-      this.debug()
-      return { success: true }
-    } catch (error) {
-      // Rollback en cas d'erreur
-      this.servers = backupServers
-      return { success: false, error: "Erreur lors de la sauvegarde" }
-    }
-  }
-
-  // Vérifier si un serveur est whitelisté
-  isWhitelisted(gameId: string): boolean {
-    const found = this.servers.some((s) => s.gameId === gameId)
-    console.log(`[STORAGE] Vérification ${gameId}: ${found ? "AUTORISÉ" : "REFUSÉ"}`)
-    console.log(`[STORAGE] Serveurs disponibles: [${this.servers.map((s) => s.gameId).join(", ")}]`)
-    return found
-  }
-
-  // Mettre à jour la dernière vérification
-  async updateLastCheck(gameId: string): Promise<void> {
-    const server = this.servers.find((s) => s.gameId === gameId)
-    if (server) {
-      server.lastCheck = new Date().toISOString()
-      try {
-        await this.saveToJSON()
-        console.log(`[STORAGE] Dernière vérification mise à jour pour: ${gameId}`)
-      } catch (error) {
-        console.error(`[STORAGE] Erreur mise à jour lastCheck pour ${gameId}:`, error)
+      const newServer: WhitelistServer = {
+        gameId: newGameId.trim(),
+        gameName: newGameName.trim() || undefined,
+        addedAt: new Date().toISOString(),
       }
-    }
-  }
 
-  // Obtenir tous les serveurs
-  getAllServers(): WhitelistServer[] {
-    console.log(`[STORAGE] Récupération de ${this.servers.length} serveurs`)
-    return [...this.servers]
-  }
+      // Ajouter au state local
+      const updatedServers = [...servers, newServer]
+      setServers(updatedServers)
 
-  // Forcer le rechargement depuis le fichier JSON
-  async reload(): Promise<void> {
-    console.log("[STORAGE] Rechargement forcé des données")
-    await this.loadFromJSON()
-  }
-
-  // Debug - afficher l'état actuel
-  debug(): void {
-    console.log(`[STORAGE] === ÉTAT ACTUEL ===`)
-    console.log(`[STORAGE] Fichier: ${this.JSON_FILE_PATH}`)
-    console.log(`[STORAGE] Nombre de serveurs: ${this.servers.length}`)
-    this.servers.forEach((server, index) => {
-      console.log(
-        `[STORAGE] ${index + 1}. ${server.gameId} (${server.gameName || "Sans nom"}) - Ajouté: ${server.addedAt}`,
-      )
-    })
-    console.log(`[STORAGE] =====================`)
-  }
-
-  // Obtenir les statistiques
-  getStats() {
-    const stats = {
-      total: this.servers.length,
-      withLastCheck: this.servers.filter((s) => s.lastCheck).length,
-      recentChecks: this.servers.filter((s) => {
-        if (!s.lastCheck) return false
-        const checkTime = new Date(s.lastCheck).getTime()
-        const now = Date.now()
-        return now - checkTime < 24 * 60 * 60 * 1000 // Dernières 24h
-      }).length,
-    }
-
-    console.log(`[STORAGE] Statistiques:`, stats)
-    return stats
-  }
-
-  // Exporter les données (pour backup)
-  exportData(): StorageData {
-    return {
-      servers: [...this.servers],
-      lastSaved: new Date().toISOString(),
-      version: this.VERSION,
-    }
-  }
-
-  // Importer les données (pour restore)
-  async importData(data: StorageData): Promise<boolean> {
-    try {
-      const backupServers = [...this.servers]
-      this.servers = data.servers || []
-
-      await this.saveToJSON()
-      console.log(`[STORAGE] Importé ${this.servers.length} serveurs`)
-      return true
-    } catch (error) {
-      console.error("[STORAGE] Erreur lors de l'import:", error)
-      return false
-    }
-  }
-
-  // Obtenir le chemin du fichier JSON
-  getFilePath(): string {
-    return this.JSON_FILE_PATH
-  }
-}
-
-// Instance singleton
-export const WhitelistStorage = new WhitelistStorageClass()
+      setNewGameId("")
+      setNewGameName("")
+      setSuccess(`Serveur ${newGameId.trim()} ajouté avec suc

@@ -7,19 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  Trash2,
-  Plus,
-  RefreshCw,
-  TestTube,
-  Server,
-  Shield,
-  Clock,
-  Copy,
-  AlertCircle,
-  Download,
-  Upload,
-} from "lucide-react"
+import { Trash2, Plus, RefreshCw, TestTube, Server, Shield, Clock, Copy, AlertCircle, Download, Upload, Database, Info } from 'lucide-react'
 
 interface WhitelistServer {
   gameId: string
@@ -37,7 +25,33 @@ export default function ServerWhitelistManager() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  // Charger les serveurs
+  // Charger les serveurs depuis le localStorage au démarrage
+  useEffect(() => {
+    const savedServers = localStorage.getItem("obsidian-whitelist-servers")
+    if (savedServers) {
+      try {
+        const parsed = JSON.parse(savedServers)
+        setServers(parsed.servers || [])
+        setSuccess("Données chargées depuis le stockage local")
+      } catch (error) {
+        console.error("Erreur lors du chargement:", error)
+      }
+    }
+  }, [])
+
+  // Sauvegarder dans le localStorage à chaque changement
+  useEffect(() => {
+    if (servers.length > 0) {
+      const data = {
+        servers,
+        lastSaved: new Date().toISOString(),
+        version: "1.0",
+      }
+      localStorage.setItem("obsidian-whitelist-servers", JSON.stringify(data))
+    }
+  }, [servers])
+
+  // Charger les serveurs depuis l'API
   const loadServers = async () => {
     try {
       setError(null)
@@ -74,41 +88,35 @@ export default function ServerWhitelistManager() {
       return
     }
 
+    // Vérifier si le serveur existe déjà
+    if (servers.some((s) => s.gameId === newGameId.trim())) {
+      setError("Ce serveur est déjà dans la whitelist")
+      return
+    }
+
     setLoading(true)
     setError(null)
     setSuccess(null)
 
     try {
-      console.log("Ajout du serveur:", newGameId.trim())
-
-      const response = await fetch("/api/whitelist", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          gameId: newGameId.trim(),
-          gameName: newGameName.trim() || undefined,
-        }),
-      })
-
-      console.log("Réponse POST:", response.status, response.statusText)
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log("Serveur ajouté:", data)
-        setNewGameId("")
-        setNewGameName("")
-        setSuccess(`Serveur ${newGameId.trim()} ajouté avec succès !`)
-        await loadServers()
-      } else {
-        const errorData = await response.json()
-        console.error("Erreur ajout:", errorData)
-        setError(errorData.error || "Erreur lors de l'ajout")
+      const newServer: WhitelistServer = {
+        gameId: newGameId.trim(),
+        gameName: newGameName.trim() || undefined,
+        addedAt: new Date().toISOString(),
       }
+
+      // Ajouter au state local
+      const updatedServers = [...servers, newServer]
+      setServers(updatedServers)
+
+      setNewGameId("")
+      setNewGameName("")
+      setSuccess(`Serveur ${newGameId.trim()} ajouté avec succès !`)
+
+      console.log("Serveur ajouté localement:", newServer)
     } catch (error) {
       console.error("Erreur ajout serveur:", error)
-      setError("Erreur de connexion lors de l'ajout")
+      setError("Erreur lors de l'ajout du serveur")
     }
     setLoading(false)
   }
@@ -122,25 +130,14 @@ export default function ServerWhitelistManager() {
       setSuccess(null)
       console.log("Suppression du serveur:", gameId)
 
-      const response = await fetch("/api/whitelist", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ gameId }),
-      })
+      // Supprimer du state local
+      const updatedServers = servers.filter((s) => s.gameId !== gameId)
+      setServers(updatedServers)
 
-      if (response.ok) {
-        console.log("Serveur supprimé")
-        setSuccess(`Serveur ${gameId} supprimé avec succès !`)
-        await loadServers()
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || "Erreur lors de la suppression")
-      }
+      setSuccess(`Serveur ${gameId} supprimé avec succès !`)
     } catch (error) {
       console.error("Erreur suppression serveur:", error)
-      setError("Erreur de connexion lors de la suppression")
+      setError("Erreur lors de la suppression")
     }
   }
 
@@ -150,14 +147,12 @@ export default function ServerWhitelistManager() {
       setError(null)
       console.log("Test du serveur:", gameId)
 
-      const response = await fetch(`/api/whitelist/check?gameId=${gameId}`)
-      const data = await response.json()
-
-      console.log("Résultat du test:", data)
+      // Simuler le test en vérifiant si le serveur est dans la liste
+      const isWhitelisted = servers.some((s) => s.gameId === gameId)
 
       setTestResults((prev) => ({
         ...prev,
-        [gameId]: data.whitelisted,
+        [gameId]: isWhitelisted,
       }))
 
       setTimeout(() => {
@@ -174,22 +169,24 @@ export default function ServerWhitelistManager() {
   }
 
   // Exporter les données
-  const exportData = async () => {
+  const exportData = () => {
     try {
-      const response = await fetch("/api/whitelist/export")
-      if (response.ok) {
-        const data = await response.json()
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = `obsidian-whitelist-${new Date().toISOString().split("T")[0]}.json`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-        setSuccess("Données exportées avec succès !")
+      const data = {
+        servers,
+        lastSaved: new Date().toISOString(),
+        version: "1.0",
       }
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `obsidian-whitelist-${new Date().toISOString().split("T")[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setSuccess("Données exportées avec succès !")
     } catch (error) {
       setError("Erreur lors de l'export")
     }
@@ -201,21 +198,11 @@ export default function ServerWhitelistManager() {
     if (!file) return
 
     const reader = new FileReader()
-    reader.onload = async (e) => {
+    reader.onload = (e) => {
       try {
         const jsonData = JSON.parse(e.target?.result as string)
-        const response = await fetch("/api/whitelist/import", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(jsonData),
-        })
-
-        if (response.ok) {
-          setSuccess("Données importées avec succès !")
-          await loadServers()
-        } else {
-          setError("Erreur lors de l'import")
-        }
+        setServers(jsonData.servers || [])
+        setSuccess("Données importées avec succès !")
       } catch (error) {
         setError("Fichier JSON invalide")
       }
@@ -223,9 +210,22 @@ export default function ServerWhitelistManager() {
     reader.readAsText(file)
   }
 
+  // Copier les données pour la variable d'environnement
+  const copyEnvironmentData = () => {
+    const data = {
+      servers,
+      lastSaved: new Date().toISOString(),
+      version: "1.0",
+    }
+
+    const envData = JSON.stringify(data)
+    navigator.clipboard.writeText(envData)
+    setSuccess("Données copiées ! Ajoutez ceci à la variable WHITELIST_DATA")
+  }
+
   // Copier le script Roblox
   const copyScript = () => {
-    const script = `-- Script Obsidian - Vérification Whitelist Serveur (GET Method)
+    const script = `-- Script Obsidian - Vérification Whitelist Serveur
 -- À placer dans ServerScriptService
 
 local HttpService = game:GetService("HttpService")
@@ -251,17 +251,14 @@ local function logMessage(message, level)
     print(prefix .. " " .. message)
 end
 
--- Fonction pour vérifier si le serveur est whitelisté (GET)
+-- Fonction pour vérifier si le serveur est whitelisté
 local function checkServerWhitelist()
     local gameId = tostring(game.GameId)
     
     logMessage("Vérification de la whitelist...", "info")
     logMessage("Game ID: " .. gameId, "info")
-    logMessage("API URL: " .. API_URL, "info")
     
-    -- Construire l'URL avec le paramètre GET
     local requestUrl = API_URL .. "?gameId=" .. gameId
-    logMessage("URL complète: " .. requestUrl, "info")
     
     local success, result = pcall(function()
         local response = HttpService:RequestAsync({
@@ -272,114 +269,49 @@ local function checkServerWhitelist()
             }
         })
         
-        logMessage("Code de réponse HTTP: " .. tostring(response.StatusCode), "info")
-        logMessage("Corps de la réponse: " .. tostring(response.Body), "info")
-        
         if response.StatusCode == 200 then
             return HttpService:JSONDecode(response.Body)
         else
-            error("HTTP " .. response.StatusCode .. ": " .. response.StatusMessage)
+            error("HTTP " .. response.StatusCode)
         end
     end)
     
     if success and result then
-        logMessage("Réponse API décodée avec succès", "info")
-        
         if result.success and result.whitelisted then
             logMessage("🛡️ SERVEUR AUTORISÉ - Obsidian Protection ACTIVÉE", "success")
-            logMessage("Game ID " .. gameId .. " est dans la whitelist", "success")
             OBSIDIAN_ENABLED = true
-            
-            -- ICI: Activez vos fonctionnalités Obsidian
-            -- Exemple: require(script.ObsidianCore):Enable()
-            logMessage("Toutes les protections Obsidian sont maintenant actives", "success")
-            
             return true
         else
             logMessage("🚫 SERVEUR NON AUTORISÉ - Obsidian Protection DÉSACTIVÉE", "error")
-            logMessage("Game ID " .. gameId .. " N'EST PAS dans la whitelist", "error")
             OBSIDIAN_ENABLED = false
-            
-            -- Optionnel: Désactiver certaines fonctionnalités
-            logMessage("Les protections Obsidian restent désactivées", "warning")
-            
             return false
         end
     else
         logMessage("Erreur lors de la vérification: " .. tostring(result), "error")
-        logMessage("Vérifiez que 'Allow HTTP Requests' est activé dans les paramètres du jeu", "warning")
-        logMessage("Vérifiez aussi que l'URL de l'API est correcte", "warning")
-        
-        -- En cas d'erreur, mode sécurisé (désactivé)
         OBSIDIAN_ENABLED = false
         return false
     end
 end
 
--- Fonction pour obtenir le statut d'Obsidian
-local function getObsidianStatus()
-    return OBSIDIAN_ENABLED
-end
-
--- Test de connectivité de base
-local function testConnection()
-    logMessage("Test de connectivité de base...", "info")
-    
-    local success, response = pcall(function()
-        return HttpService:RequestAsync({
-            Url = "https://httpbin.org/get",
-            Method = "GET"
-        })
-    end)
-    
-    if success then
-        logMessage("Connectivité HTTP: OK", "success")
-    else
-        logMessage("Connectivité HTTP: ÉCHEC", "error")
-        logMessage("HTTP Requests n'est probablement pas activé", "warning")
-    end
-end
-
--- Initialisation du système
+-- Initialisation
 logMessage("=== OBSIDIAN WHITELIST SYSTEM ===", "info")
-logMessage("Version: 2.0 (GET Method)", "info")
 logMessage("Game ID: " .. tostring(game.GameId), "info")
-logMessage("Place ID: " .. tostring(game.PlaceId), "info")
 
--- Démarrage avec délai
 spawn(function()
-    wait(2) -- Attendre que le serveur soit complètement démarré
-    
-    -- Test de connectivité d'abord
-    testConnection()
-    wait(1)
-    
-    -- Vérification de la whitelist
+    wait(2)
     if checkServerWhitelist() then
         logMessage("🎯 SYSTÈME OBSIDIAN OPÉRATIONNEL", "success")
     else
-        logMessage("🔒 SYSTÈME OBSIDIAN EN ATTENTE D'AUTORISATION", "warning")
-        logMessage("Ajoutez le Game ID " .. game.GameId .. " à la whitelist", "info")
+        logMessage("🔒 SYSTÈME EN ATTENTE D'AUTORISATION", "warning")
     end
 end)
 
--- Vérification périodique (optionnel)
-spawn(function()
-    while true do
-        wait(CHECK_INTERVAL)
-        logMessage("Vérification périodique de la whitelist...", "info")
-        checkServerWhitelist()
-    end
-end)
-
--- API publique pour d'autres scripts
+-- API publique
 _G.ObsidianWhitelist = {
-    IsEnabled = getObsidianStatus,
+    IsEnabled = function() return OBSIDIAN_ENABLED end,
     ForceCheck = checkServerWhitelist,
     GetGameId = function() return tostring(game.GameId) end
-}
-
-logMessage("Système de whitelist Obsidian initialisé avec succès", "success")`
+}`
 
     navigator.clipboard.writeText(script)
     setSuccess("Script copié dans le presse-papiers !")
@@ -395,10 +327,6 @@ logMessage("Système de whitelist Obsidian initialisé avec succès", "success")
       return () => clearTimeout(timer)
     }
   }, [error, success])
-
-  useEffect(() => {
-    loadServers()
-  }, [])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("fr-FR")
@@ -424,6 +352,26 @@ logMessage("Système de whitelist Obsidian initialisé avec succès", "success")
           </CardContent>
         </Card>
       )}
+
+      {/* Information sur le stockage */}
+      <Card className="bg-blue-900/50 border-blue-700">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-400 mt-0.5" />
+            <div>
+              <h3 className="text-blue-300 font-medium mb-2">💾 Stockage Local Actif</h3>
+              <p className="text-blue-200 text-sm mb-2">
+                Les données sont sauvegardées dans votre navigateur. Pour une persistance complète en production :
+              </p>
+              <ol className="text-blue-200 text-sm space-y-1 ml-4 list-decimal">
+                <li>Exportez vos données avec le bouton "Exporter"</li>
+                <li>Copiez les données d'environnement</li>
+                <li>Ajoutez la variable WHITELIST_DATA à votre déploiement</li>
+              </ol>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Statistiques */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -506,14 +454,6 @@ logMessage("Système de whitelist Obsidian initialisé avec succès", "success")
               {loading ? "Ajout..." : "Ajouter"}
             </Button>
             <Button
-              onClick={loadServers}
-              variant="outline"
-              className="border-slate-600 text-slate-300 hover:bg-slate-700 bg-transparent"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Actualiser
-            </Button>
-            <Button
               onClick={exportData}
               variant="outline"
               className="border-blue-600 text-blue-300 hover:bg-blue-600/20 bg-transparent"
@@ -534,6 +474,14 @@ logMessage("Système de whitelist Obsidian initialisé avec succès", "success")
               </Button>
               <input type="file" accept=".json" onChange={importData} className="hidden" />
             </label>
+            <Button
+              onClick={copyEnvironmentData}
+              variant="outline"
+              className="border-yellow-600 text-yellow-300 hover:bg-yellow-600/20 bg-transparent"
+            >
+              <Database className="h-4 w-4 mr-2" />
+              Copier ENV
+            </Button>
           </div>
         </CardContent>
       </Card>

@@ -1,5 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { WhitelistStorage } from "@/lib/whitelist-storage"
+
+// Simuler une whitelist basée sur les données d'environnement
+function getWhitelistFromEnv(): string[] {
+  try {
+    const envData = process.env.WHITELIST_DATA
+    if (envData) {
+      const parsed = JSON.parse(envData)
+      return parsed.servers?.map((s: any) => s.gameId) || []
+    }
+  } catch (error) {
+    console.error("Erreur parsing WHITELIST_DATA:", error)
+  }
+  return []
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,15 +32,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Forcer le rechargement des données depuis le JSON pour s'assurer d'avoir les dernières
-    await WhitelistStorage.reload()
+    // Récupérer la whitelist depuis l'environnement
+    const whitelistedIds = getWhitelistFromEnv()
+    const isWhitelisted = whitelistedIds.includes(gameId)
 
-    const isWhitelisted = WhitelistStorage.isWhitelisted(gameId)
-
-    // Mettre à jour la dernière vérification si le serveur est whitelisté
-    if (isWhitelisted) {
-      await WhitelistStorage.updateLastCheck(gameId)
-    }
+    console.log(`[API] Serveurs whitelistés: [${whitelistedIds.join(", ")}]`)
+    console.log(`[API] Vérification ${gameId}: ${isWhitelisted ? "AUTORISÉ" : "REFUSÉ"}`)
 
     const response = {
       success: true,
@@ -73,15 +83,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Forcer le rechargement des données depuis le JSON
-    await WhitelistStorage.reload()
+    // Récupérer la whitelist depuis l'environnement
+    const whitelistedIds = getWhitelistFromEnv()
+    const isWhitelisted = whitelistedIds.includes(gameId)
 
-    const isWhitelisted = WhitelistStorage.isWhitelisted(gameId)
-
-    // Mettre à jour la dernière vérification si le serveur est whitelisté
-    if (isWhitelisted) {
-      await WhitelistStorage.updateLastCheck(gameId)
-    }
+    console.log(`[API] Serveurs whitelistés: [${whitelistedIds.join(", ")}]`)
+    console.log(`[API] Vérification ${gameId}: ${isWhitelisted ? "AUTORISÉ" : "REFUSÉ"}`)
 
     const response = {
       success: true,
