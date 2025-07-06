@@ -36,6 +36,25 @@ interface MongoCollection {
   lastSaved: string
 }
 
+const loadServers = async (
+  setServers: React.Dispatch<React.SetStateAction<WhitelistServer[]>>,
+  setStats: React.Dispatch<React.SetStateAction<any>>,
+  setError: React.Dispatch<React.SetStateAction<string | null>>,
+) => {
+  try {
+    const response = await fetch("/api/whitelist")
+    if (response.ok) {
+      const data = await response.json()
+      setServers(data.servers || [])
+      setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
+    } else {
+      setError("Erreur lors du chargement des serveurs")
+    }
+  } catch (error) {
+    setError("Erreur de connexion")
+  }
+}
+
 export default function ServerWhitelistManager() {
   const [servers, setServers] = useState<WhitelistServer[]>([])
   const [newGameId, setNewGameId] = useState("")
@@ -60,7 +79,7 @@ export default function ServerWhitelistManager() {
         console.error("Erreur chargement localStorage:", error)
       }
     }
-    loadServers()
+    loadServers(setServers, setStats, setError)
   }, [])
 
   // Sauvegarder dans localStorage à chaque changement
@@ -74,49 +93,6 @@ export default function ServerWhitelistManager() {
       setLastSync(data.lastSaved)
     }
   }, [servers])
-
-  // Synchroniser avec le serveur
-  const syncWithServer = async () => {
-    try {
-      const localData: MongoCollection = {
-        servers,
-        lastSaved: lastSync || new Date().toISOString(),
-      }
-
-      const response = await fetch("/api/whitelist/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(localData),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setServers(data.servers || [])
-        setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
-        setSuccess(data.synced ? "Synchronisation réussie !" : "Données à jour")
-      }
-    } catch (error) {
-      console.error("Erreur sync:", error)
-    }
-  }
-
-  // Charger les serveurs
-  const loadServers = async () => {
-    try {
-      setError(null)
-      const response = await fetch("/api/whitelist")
-
-      if (response.ok) {
-        const data = await response.json()
-        setServers(data.servers || [])
-        setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
-      } else {
-        setError("Erreur lors du chargement")
-      }
-    } catch (error) {
-      setError("Erreur de connexion")
-    }
-  }
 
   // Ajouter un serveur
   const addServer = async () => {
@@ -135,23 +111,30 @@ export default function ServerWhitelistManager() {
     setError(null)
 
     try {
-      // Ajouter localement d'abord
-      const newServer: WhitelistServer = {
-        _id: Date.now().toString(),
-        gameId: newGameId.trim(),
-        gameName: newGameName.trim() || undefined,
-        addedAt: new Date().toISOString(),
+      // Appeler directement l'API au lieu d'ajouter localement d'abord
+      const response = await fetch("/api/whitelist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameId: newGameId.trim(),
+          gameName: newGameName.trim() || undefined,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        // Mettre à jour avec les données du serveur
+        setServers(data.servers || [])
+        setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
+        setNewGameId("")
+        setNewGameName("")
+        setSuccess(`Serveur ${newGameId.trim()} ajouté !`)
+      } else {
+        setError(data.error || "Erreur lors de l'ajout")
       }
-
-      setServers((prev) => [newServer, ...prev])
-      setNewGameId("")
-      setNewGameName("")
-      setSuccess(`Serveur ${newGameId.trim()} ajouté !`)
-
-      // Puis synchroniser avec le serveur
-      setTimeout(syncWithServer, 500)
     } catch (error) {
-      setError("Erreur lors de l'ajout")
+      setError("Erreur de connexion")
     }
     setLoading(false)
   }
@@ -161,14 +144,44 @@ export default function ServerWhitelistManager() {
     if (!confirm("Supprimer ce serveur ?")) return
 
     try {
-      // Supprimer localement d'abord
-      setServers((prev) => prev.filter((s) => s.gameId !== gameId))
-      setSuccess(`Serveur ${gameId} supprimé !`)
+      // Appeler directement l'API
+      const response = await fetch("/api/whitelist", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId }),
+      })
 
-      // Puis synchroniser avec le serveur
-      setTimeout(syncWithServer, 500)
+      const data = await response.json()
+
+      if (response.ok) {
+        // Mettre à jour avec les données du serveur
+        setServers(data.servers || [])
+        setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
+        setSuccess(`Serveur ${gameId} supprimé !`)
+      } else {
+        setError(data.error || "Erreur lors de la suppression")
+      }
     } catch (error) {
-      setError("Erreur lors de la suppression")
+      setError("Erreur de connexion")
+    }
+  }
+
+  // Recharger les données
+  const reloadData = async () => {
+    try {
+      setError(null)
+      const response = await fetch("/api/whitelist")
+
+      if (response.ok) {
+        const data = await response.json()
+        setServers(data.servers || [])
+        setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
+        setSuccess("Données rechargées !")
+      } else {
+        setError("Erreur lors du rechargement")
+      }
+    } catch (error) {
+      setError("Erreur de connexion")
     }
   }
 
@@ -226,7 +239,7 @@ export default function ServerWhitelistManager() {
         const data: MongoCollection = JSON.parse(e.target?.result as string)
         setServers(data.servers || [])
         setSuccess("Données importées !")
-        setTimeout(syncWithServer, 500)
+        setTimeout(reloadData, 500)
       } catch (error) {
         setError("Fichier JSON invalide")
       }
@@ -424,12 +437,12 @@ _G.ObsidianWhitelist = {
               {loading ? "Ajout..." : "Ajouter"}
             </Button>
             <Button
-              onClick={syncWithServer}
+              onClick={reloadData}
               variant="outline"
               className="border-blue-600 text-blue-300 hover:bg-blue-600/20 bg-transparent"
             >
               <Sync className="h-4 w-4 mr-2" />
-              Sync
+              Recharger
             </Button>
             <Button
               onClick={exportData}
