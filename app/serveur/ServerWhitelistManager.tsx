@@ -9,7 +9,6 @@ import {
   Trash2,
   Plus,
   TestTube,
-  Server,
   Shield,
   Clock,
   Copy,
@@ -18,6 +17,11 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
+  RotateCcw,
+  Trash,
+  Sparkles,
+  Info,
+  Globe,
 } from "lucide-react"
 
 interface WhitelistServer {
@@ -26,6 +30,13 @@ interface WhitelistServer {
   gameName?: string
   addedAt: string
   lastCheck?: string
+}
+
+interface ConnectionInfo {
+  connected: boolean
+  database: string
+  collection: string
+  uri: string
 }
 
 export default function ServerWhitelistManager() {
@@ -37,11 +48,27 @@ export default function ServerWhitelistManager() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [stats, setStats] = useState({ total: 0, withLastCheck: 0, recentChecks: 0 })
+  const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo | null>(null)
   const [mongoStatus, setMongoStatus] = useState<{
     connected: boolean
     message: string
     loading: boolean
   }>({ connected: false, message: "Vérification...", loading: true })
+
+  // Charger les informations de connexion
+  const loadConnectionInfo = async () => {
+    try {
+      const response = await fetch("/api/whitelist/info")
+      const data = await response.json()
+
+      if (data.success) {
+        setConnectionInfo(data.connection)
+        setStats(data.stats)
+      }
+    } catch (error) {
+      console.error("Erreur chargement info:", error)
+    }
+  }
 
   // Tester la connexion MongoDB
   const testMongoDB = async () => {
@@ -54,7 +81,7 @@ export default function ServerWhitelistManager() {
       if (data.success && data.connected) {
         setMongoStatus({
           connected: true,
-          message: "MongoDB connecté avec succès",
+          message: "MongoDB Atlas connecté avec succès",
           loading: false,
         })
         if (data.stats) {
@@ -63,7 +90,7 @@ export default function ServerWhitelistManager() {
       } else {
         setMongoStatus({
           connected: false,
-          message: data.message || "Échec de connexion",
+          message: data.message || "Échec de connexion à MongoDB Atlas",
           loading: false,
         })
       }
@@ -86,7 +113,7 @@ export default function ServerWhitelistManager() {
         const data = await response.json()
         setServers(data.servers || [])
         setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
-        console.log(`✅ Chargé ${data.servers?.length || 0} serveurs depuis MongoDB`)
+        console.log(`✅ Chargé ${data.servers?.length || 0} serveurs depuis MongoDB Atlas`)
       } else {
         const errorData = await response.json()
         setError(errorData.error || "Erreur lors du chargement")
@@ -94,6 +121,57 @@ export default function ServerWhitelistManager() {
     } catch (error) {
       setError("Erreur de connexion au serveur")
     }
+  }
+
+  // Réinitialiser avec les données par défaut
+  const resetToDefault = async () => {
+    if (!confirm("Réinitialiser avec les serveurs de démonstration ? (Cela supprimera tous les serveurs existants)"))
+      return
+
+    setLoading(true)
+    try {
+      const response = await fetch("/api/whitelist/reset", {
+        method: "POST",
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setServers(data.servers || [])
+        setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
+        setSuccess("✅ Base de données réinitialisée avec les serveurs de démonstration !")
+      } else {
+        setError(data.error || "Erreur lors de la réinitialisation")
+      }
+    } catch (error) {
+      setError("Erreur de connexion")
+    }
+    setLoading(false)
+  }
+
+  // Vider la base de données
+  const clearAll = async () => {
+    if (!confirm("⚠️ ATTENTION: Supprimer TOUS les serveurs de MongoDB Atlas ? Cette action est irréversible !")) return
+
+    setLoading(true)
+    try {
+      const response = await fetch("/api/whitelist/clear", {
+        method: "POST",
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setServers(data.servers || [])
+        setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
+        setSuccess("✅ Tous les serveurs supprimés de MongoDB Atlas !")
+      } else {
+        setError(data.error || "Erreur lors de la suppression")
+      }
+    } catch (error) {
+      setError("Erreur de connexion")
+    }
+    setLoading(false)
   }
 
   // Ajouter un serveur
@@ -123,7 +201,7 @@ export default function ServerWhitelistManager() {
         setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
         setNewGameId("")
         setNewGameName("")
-        setSuccess(`✅ Serveur ${newGameId.trim()} ajouté à MongoDB !`)
+        setSuccess(`✅ Serveur ${newGameId.trim()} ajouté à MongoDB Atlas !`)
       } else {
         setError(data.error || "Erreur lors de l'ajout")
       }
@@ -135,7 +213,7 @@ export default function ServerWhitelistManager() {
 
   // Supprimer un serveur
   const removeServer = async (gameId: string) => {
-    if (!confirm("Supprimer ce serveur de MongoDB ?")) return
+    if (!confirm("Supprimer ce serveur de MongoDB Atlas ?")) return
 
     try {
       const response = await fetch("/api/whitelist", {
@@ -149,7 +227,7 @@ export default function ServerWhitelistManager() {
       if (response.ok) {
         setServers(data.servers || [])
         setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
-        setSuccess(`✅ Serveur ${gameId} supprimé de MongoDB !`)
+        setSuccess(`✅ Serveur ${gameId} supprimé de MongoDB Atlas !`)
       } else {
         setError(data.error || "Erreur lors de la suppression")
       }
@@ -180,14 +258,15 @@ export default function ServerWhitelistManager() {
 
   // Copier le script Roblox
   const copyScript = () => {
-    const script = `-- Script Obsidian Whitelist MongoDB v3.0
+    const script = `-- Script Obsidian Whitelist MongoDB Atlas v4.0
 local HttpService = game:GetService("HttpService")
 local API_URL = "${typeof window !== "undefined" ? window.location.origin : ""}/api/whitelist/check"
 
 local function checkWhitelist()
     local gameId = tostring(game.GameId)
     print("🔍 [OBSIDIAN] Vérification Game ID: " .. gameId)
-    print("🍃 [OBSIDIAN] Connexion à MongoDB...")
+    print("🍃 [OBSIDIAN] Connexion à MongoDB Atlas...")
+    print("🌐 [OBSIDIAN] Database: Obsidian Whitelist")
     
     local success, result = pcall(function()
         return HttpService:RequestAsync({
@@ -199,17 +278,20 @@ local function checkWhitelist()
     if success and result.StatusCode == 200 then
         local data = HttpService:JSONDecode(result.Body)
         if data.whitelisted then
-            print("✅ [OBSIDIAN] Serveur autorisé dans MongoDB")
+            print("✅ [OBSIDIAN] Serveur autorisé dans MongoDB Atlas")
             print("🛡️ [OBSIDIAN] Protection Obsidian ACTIVÉE")
+            print("📊 [OBSIDIAN] Données synchronisées avec le cloud")
             return true
         else
             print("❌ [OBSIDIAN] Serveur NON AUTORISÉ")
-            print("⚠️ [OBSIDIAN] Ajoutez Game ID " .. gameId .. " à MongoDB")
+            print("⚠️ [OBSIDIAN] Ajoutez Game ID " .. gameId .. " à MongoDB Atlas")
+            print("🌐 [OBSIDIAN] Contactez l'admin pour whitelist")
             return false
         end
     else
-        print("⚠️ [OBSIDIAN] Erreur connexion MongoDB")
+        print("⚠️ [OBSIDIAN] Erreur connexion MongoDB Atlas")
         print("💡 [OBSIDIAN] Vérifiez 'Allow HTTP Requests'")
+        print("🔧 [OBSIDIAN] Vérifiez la connexion internet")
         return false
     end
 end
@@ -218,15 +300,17 @@ end
 spawn(function()
     wait(2)
     print("🚀 [OBSIDIAN] Démarrage du système...")
+    print("🍃 [OBSIDIAN] Connexion à MongoDB Atlas...")
     local authorized = checkWhitelist()
     
     if authorized then
         print("🎯 [OBSIDIAN] Système OPÉRATIONNEL")
-        print("🍃 [OBSIDIAN] Données synchronisées avec MongoDB")
+        print("☁️ [OBSIDIAN] Données cloud synchronisées")
+        print("🛡️ [OBSIDIAN] Protection active")
         -- ICI: Activez vos protections Obsidian
     else
         print("🔒 [OBSIDIAN] Système en ATTENTE d'autorisation")
-        print("📝 [OBSIDIAN] Contactez l'admin pour whitelist")
+        print("📝 [OBSIDIAN] Demandez l'accès à l'administrateur")
     end
 end)
 
@@ -236,17 +320,19 @@ _G.ObsidianWhitelist = {
     GetGameId = function() return tostring(game.GameId) end,
     GetStatus = function() 
         return checkWhitelist() and "AUTHORIZED" or "UNAUTHORIZED" 
-    end
+    end,
+    GetVersion = function() return "4.0-Atlas" end
 }`
 
     navigator.clipboard.writeText(script)
-    setSuccess("✅ Script MongoDB copié !")
+    setSuccess("✅ Script MongoDB Atlas copié !")
   }
 
   // Charger au démarrage
   useEffect(() => {
     testMongoDB()
     loadServers()
+    loadConnectionInfo()
   }, [])
 
   // Nettoyer les messages
@@ -281,7 +367,7 @@ _G.ObsidianWhitelist = {
         </Card>
       )}
 
-      {/* Statut MongoDB */}
+      {/* Statut MongoDB Atlas */}
       <Card
         className={`${mongoStatus.connected ? "bg-green-900/50 border-green-700" : "bg-red-900/50 border-red-700"}`}
       >
@@ -294,23 +380,43 @@ _G.ObsidianWhitelist = {
             ) : (
               <XCircle className="h-6 w-6 text-red-400" />
             )}
-            <div>
+            <div className="flex-1">
               <h3 className={`font-medium ${mongoStatus.connected ? "text-green-300" : "text-red-300"}`}>
-                🍃 MongoDB {mongoStatus.connected ? "CONNECTÉ" : "DÉCONNECTÉ"}
+                🍃 MongoDB Atlas {mongoStatus.connected ? "CONNECTÉ" : "DÉCONNECTÉ"}
               </h3>
               <p className={`text-sm ${mongoStatus.connected ? "text-green-200" : "text-red-200"}`}>
                 {mongoStatus.message}
               </p>
+              {connectionInfo && (
+                <div className="mt-2 text-xs text-slate-400">
+                  <p>
+                    📊 Database: <span className="text-blue-300">{connectionInfo.database}</span>
+                  </p>
+                  <p>
+                    📁 Collection: <span className="text-purple-300">{connectionInfo.collection}</span>
+                  </p>
+                </div>
+              )}
             </div>
-            <Button
-              onClick={testMongoDB}
-              size="sm"
-              variant="outline"
-              className="ml-auto border-slate-600 text-slate-300 hover:bg-slate-700 bg-transparent"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Test
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={loadConnectionInfo}
+                size="sm"
+                variant="outline"
+                className="border-slate-600 text-slate-300 hover:bg-slate-700 bg-transparent"
+              >
+                <Info className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={testMongoDB}
+                size="sm"
+                variant="outline"
+                className="border-slate-600 text-slate-300 hover:bg-slate-700 bg-transparent"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Test
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -320,10 +426,10 @@ _G.ObsidianWhitelist = {
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="p-6">
             <div className="flex items-center space-x-2">
-              <Server className="h-8 w-8 text-blue-400" />
+              <Globe className="h-8 w-8 text-blue-400" />
               <div>
                 <p className="text-2xl font-bold text-white">{stats.total}</p>
-                <p className="text-slate-400">Serveurs MongoDB</p>
+                <p className="text-slate-400">Serveurs Atlas</p>
               </div>
             </div>
           </CardContent>
@@ -354,12 +460,29 @@ _G.ObsidianWhitelist = {
         </Card>
       </div>
 
+      {/* Actions rapides */}
+      {servers.length === 0 && (
+        <Card className="bg-blue-900/50 border-blue-700">
+          <CardContent className="p-6 text-center">
+            <Sparkles className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-blue-300 mb-2">Base de données vide</h3>
+            <p className="text-blue-200 mb-4">
+              Commencez par ajouter des serveurs de démonstration populaires dans MongoDB Atlas !
+            </p>
+            <Button onClick={resetToDefault} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Ajouter des serveurs de démo
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Ajouter serveur */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Plus className="h-5 w-5" />
-            Ajouter un serveur à MongoDB
+            Ajouter un serveur à MongoDB Atlas
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -382,10 +505,10 @@ _G.ObsidianWhitelist = {
           <div className="flex gap-2 flex-wrap">
             <Button
               onClick={addServer}
-              disabled={loading || !newGameId.trim() || !mongoStatus.connected}
+              disabled={loading || !newGameId.trim()}
               className="bg-purple-600 hover:bg-purple-700"
             >
-              {loading ? "Ajout..." : "Ajouter à MongoDB"}
+              {loading ? "Ajout..." : "Ajouter à Atlas"}
             </Button>
             <Button
               onClick={loadServers}
@@ -395,6 +518,39 @@ _G.ObsidianWhitelist = {
               <RefreshCw className="h-4 w-4 mr-2" />
               Recharger
             </Button>
+            {servers.length === 0 && (
+              <Button
+                onClick={resetToDefault}
+                disabled={loading}
+                variant="outline"
+                className="border-green-600 text-green-300 hover:bg-green-600/20 bg-transparent"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Serveurs Démo
+              </Button>
+            )}
+            {servers.length > 0 && (
+              <>
+                <Button
+                  onClick={resetToDefault}
+                  disabled={loading}
+                  variant="outline"
+                  className="border-yellow-600 text-yellow-300 hover:bg-yellow-600/20 bg-transparent"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reset Démo
+                </Button>
+                <Button
+                  onClick={clearAll}
+                  disabled={loading}
+                  variant="outline"
+                  className="border-red-600 text-red-300 hover:bg-red-600/20 bg-transparent"
+                >
+                  <Trash className="h-4 w-4 mr-2" />
+                  Vider Atlas
+                </Button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -404,15 +560,15 @@ _G.ObsidianWhitelist = {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Database className="h-5 w-5" />
-            Serveurs MongoDB ({servers.length})
+            Serveurs MongoDB Atlas ({servers.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {servers.length === 0 ? (
             <div className="text-center py-8">
               <Database className="h-12 w-12 text-slate-500 mx-auto mb-4" />
-              <p className="text-slate-400">Aucun serveur dans MongoDB</p>
-              <p className="text-slate-500 text-sm">Ajoutez votre premier serveur ci-dessus</p>
+              <p className="text-slate-400">Aucun serveur dans MongoDB Atlas</p>
+              <p className="text-slate-500 text-sm">Cliquez sur "Serveurs Démo" pour commencer</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -424,7 +580,7 @@ _G.ObsidianWhitelist = {
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <Badge className="bg-green-600/20 text-green-400">{server.gameId}</Badge>
-                      <Badge className="bg-blue-600/20 text-blue-400">MongoDB</Badge>
+                      <Badge className="bg-blue-600/20 text-blue-400">Atlas</Badge>
                       {testResults[server.gameId] !== undefined && (
                         <Badge className={testResults[server.gameId] ? "bg-green-600" : "bg-red-600"}>
                           {testResults[server.gameId] ? "✅ OK" : "❌ NOK"}
@@ -434,6 +590,11 @@ _G.ObsidianWhitelist = {
                     {server.gameName && <p className="text-white font-medium mt-1">{server.gameName}</p>}
                     <p className="text-slate-400 text-sm">
                       Ajouté: {new Date(server.addedAt).toLocaleDateString("fr-FR")}
+                      {server.lastCheck && (
+                        <span className="ml-2">
+                          • Dernière vérif: {new Date(server.lastCheck).toLocaleDateString("fr-FR")}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -465,7 +626,7 @@ _G.ObsidianWhitelist = {
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
           <CardTitle className="text-white flex items-center justify-between">
-            📋 Script Roblox MongoDB v3.0
+            📋 Script Roblox MongoDB Atlas v4.0
             <Button
               onClick={copyScript}
               variant="outline"
@@ -480,10 +641,12 @@ _G.ObsidianWhitelist = {
         <CardContent>
           <div className="bg-slate-700/50 p-3 rounded border border-slate-600">
             <p className="text-sm font-mono text-green-400">
-              🍃 MongoDB: {typeof window !== "undefined" ? window.location.origin : ""}/api/whitelist/check
+              🍃 MongoDB Atlas: {typeof window !== "undefined" ? window.location.origin : ""}/api/whitelist/check
             </p>
+            <p className="text-sm font-mono text-blue-400">📊 Database: Obsidian Whitelist</p>
+            <p className="text-sm font-mono text-purple-400">📁 Collection: servers</p>
             <p className="text-sm text-slate-400 mt-2">
-              Script optimisé pour MongoDB avec logs détaillés et vérification de connexion
+              Script optimisé pour MongoDB Atlas avec logs détaillés et vérification cloud
             </p>
           </div>
         </CardContent>
