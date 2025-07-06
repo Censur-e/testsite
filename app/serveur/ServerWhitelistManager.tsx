@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,10 +15,9 @@ import {
   Copy,
   AlertCircle,
   Database,
-  FolderSyncIcon as Sync,
-  Download,
-  Upload,
-  Info,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
 } from "lucide-react"
 
 interface WhitelistServer {
@@ -29,30 +26,6 @@ interface WhitelistServer {
   gameName?: string
   addedAt: string
   lastCheck?: string
-}
-
-interface MongoCollection {
-  servers: WhitelistServer[]
-  lastSaved: string
-}
-
-const loadServers = async (
-  setServers: React.Dispatch<React.SetStateAction<WhitelistServer[]>>,
-  setStats: React.Dispatch<React.SetStateAction<any>>,
-  setError: React.Dispatch<React.SetStateAction<string | null>>,
-) => {
-  try {
-    const response = await fetch("/api/whitelist")
-    if (response.ok) {
-      const data = await response.json()
-      setServers(data.servers || [])
-      setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
-    } else {
-      setError("Erreur lors du chargement des serveurs")
-    }
-  } catch (error) {
-    setError("Erreur de connexion")
-  }
 }
 
 export default function ServerWhitelistManager() {
@@ -64,35 +37,64 @@ export default function ServerWhitelistManager() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [stats, setStats] = useState({ total: 0, withLastCheck: 0, recentChecks: 0 })
-  const [lastSync, setLastSync] = useState<string | null>(null)
+  const [mongoStatus, setMongoStatus] = useState<{
+    connected: boolean
+    message: string
+    loading: boolean
+  }>({ connected: false, message: "Vérification...", loading: true })
 
-  // Charger depuis localStorage au démarrage
-  useEffect(() => {
-    const saved = localStorage.getItem("obsidian-mongodb-data")
-    if (saved) {
-      try {
-        const data: MongoCollection = JSON.parse(saved)
+  // Tester la connexion MongoDB
+  const testMongoDB = async () => {
+    setMongoStatus({ connected: false, message: "Test en cours...", loading: true })
+
+    try {
+      const response = await fetch("/api/whitelist/test")
+      const data = await response.json()
+
+      if (data.success && data.connected) {
+        setMongoStatus({
+          connected: true,
+          message: "MongoDB connecté avec succès",
+          loading: false,
+        })
+        if (data.stats) {
+          setStats(data.stats)
+        }
+      } else {
+        setMongoStatus({
+          connected: false,
+          message: data.message || "Échec de connexion",
+          loading: false,
+        })
+      }
+    } catch (error) {
+      setMongoStatus({
+        connected: false,
+        message: "Erreur de connexion au serveur",
+        loading: false,
+      })
+    }
+  }
+
+  // Charger les serveurs
+  const loadServers = async () => {
+    try {
+      setError(null)
+      const response = await fetch("/api/whitelist")
+
+      if (response.ok) {
+        const data = await response.json()
         setServers(data.servers || [])
-        setLastSync(data.lastSaved)
-        console.log(`💾 Chargé ${data.servers.length} serveurs depuis localStorage`)
-      } catch (error) {
-        console.error("Erreur chargement localStorage:", error)
+        setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
+        console.log(`✅ Chargé ${data.servers?.length || 0} serveurs depuis MongoDB`)
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || "Erreur lors du chargement")
       }
+    } catch (error) {
+      setError("Erreur de connexion au serveur")
     }
-    loadServers(setServers, setStats, setError)
-  }, [])
-
-  // Sauvegarder dans localStorage à chaque changement
-  useEffect(() => {
-    if (servers.length >= 0) {
-      const data: MongoCollection = {
-        servers,
-        lastSaved: new Date().toISOString(),
-      }
-      localStorage.setItem("obsidian-mongodb-data", JSON.stringify(data))
-      setLastSync(data.lastSaved)
-    }
-  }, [servers])
+  }
 
   // Ajouter un serveur
   const addServer = async () => {
@@ -101,17 +103,10 @@ export default function ServerWhitelistManager() {
       return
     }
 
-    // Vérifier si existe déjà localement
-    if (servers.some((s) => s.gameId === newGameId.trim())) {
-      setError("Serveur déjà existant")
-      return
-    }
-
     setLoading(true)
     setError(null)
 
     try {
-      // Appeler directement l'API au lieu d'ajouter localement d'abord
       const response = await fetch("/api/whitelist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -124,27 +119,25 @@ export default function ServerWhitelistManager() {
       const data = await response.json()
 
       if (response.ok) {
-        // Mettre à jour avec les données du serveur
         setServers(data.servers || [])
         setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
         setNewGameId("")
         setNewGameName("")
-        setSuccess(`Serveur ${newGameId.trim()} ajouté !`)
+        setSuccess(`✅ Serveur ${newGameId.trim()} ajouté à MongoDB !`)
       } else {
         setError(data.error || "Erreur lors de l'ajout")
       }
     } catch (error) {
-      setError("Erreur de connexion")
+      setError("Erreur de connexion au serveur")
     }
     setLoading(false)
   }
 
   // Supprimer un serveur
   const removeServer = async (gameId: string) => {
-    if (!confirm("Supprimer ce serveur ?")) return
+    if (!confirm("Supprimer ce serveur de MongoDB ?")) return
 
     try {
-      // Appeler directement l'API
       const response = await fetch("/api/whitelist", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -154,34 +147,14 @@ export default function ServerWhitelistManager() {
       const data = await response.json()
 
       if (response.ok) {
-        // Mettre à jour avec les données du serveur
         setServers(data.servers || [])
         setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
-        setSuccess(`Serveur ${gameId} supprimé !`)
+        setSuccess(`✅ Serveur ${gameId} supprimé de MongoDB !`)
       } else {
         setError(data.error || "Erreur lors de la suppression")
       }
     } catch (error) {
-      setError("Erreur de connexion")
-    }
-  }
-
-  // Recharger les données
-  const reloadData = async () => {
-    try {
-      setError(null)
-      const response = await fetch("/api/whitelist")
-
-      if (response.ok) {
-        const data = await response.json()
-        setServers(data.servers || [])
-        setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
-        setSuccess("Données rechargées !")
-      } else {
-        setError("Erreur lors du rechargement")
-      }
-    } catch (error) {
-      setError("Erreur de connexion")
+      setError("Erreur de connexion au serveur")
     }
   }
 
@@ -205,57 +178,16 @@ export default function ServerWhitelistManager() {
     }
   }
 
-  // Exporter les données
-  const exportData = () => {
-    try {
-      const data: MongoCollection = {
-        servers,
-        lastSaved: new Date().toISOString(),
-      }
-
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `obsidian-whitelist-${new Date().toISOString().split("T")[0]}.json`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      setSuccess("Données exportées !")
-    } catch (error) {
-      setError("Erreur lors de l'export")
-    }
-  }
-
-  // Importer les données
-  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const data: MongoCollection = JSON.parse(e.target?.result as string)
-        setServers(data.servers || [])
-        setSuccess("Données importées !")
-        setTimeout(reloadData, 500)
-      } catch (error) {
-        setError("Fichier JSON invalide")
-      }
-    }
-    reader.readAsText(file)
-  }
-
   // Copier le script Roblox
   const copyScript = () => {
-    const script = `-- Script Obsidian Whitelist v2.0
+    const script = `-- Script Obsidian Whitelist MongoDB v3.0
 local HttpService = game:GetService("HttpService")
 local API_URL = "${typeof window !== "undefined" ? window.location.origin : ""}/api/whitelist/check"
 
 local function checkWhitelist()
     local gameId = tostring(game.GameId)
     print("🔍 [OBSIDIAN] Vérification Game ID: " .. gameId)
+    print("🍃 [OBSIDIAN] Connexion à MongoDB...")
     
     local success, result = pcall(function()
         return HttpService:RequestAsync({
@@ -267,17 +199,17 @@ local function checkWhitelist()
     if success and result.StatusCode == 200 then
         local data = HttpService:JSONDecode(result.Body)
         if data.whitelisted then
-            print("✅ [OBSIDIAN] Serveur autorisé - Protection activée")
-            print("🛡️ [OBSIDIAN] Toutes les fonctionnalités sont disponibles")
+            print("✅ [OBSIDIAN] Serveur autorisé dans MongoDB")
+            print("🛡️ [OBSIDIAN] Protection Obsidian ACTIVÉE")
             return true
         else
-            print("❌ [OBSIDIAN] Serveur non autorisé")
-            print("⚠️ [OBSIDIAN] Ajoutez le Game ID " .. gameId .. " à la whitelist")
+            print("❌ [OBSIDIAN] Serveur NON AUTORISÉ")
+            print("⚠️ [OBSIDIAN] Ajoutez Game ID " .. gameId .. " à MongoDB")
             return false
         end
     else
-        print("⚠️ [OBSIDIAN] Erreur de vérification")
-        print("💡 [OBSIDIAN] Vérifiez 'Allow HTTP Requests' dans les paramètres")
+        print("⚠️ [OBSIDIAN] Erreur connexion MongoDB")
+        print("💡 [OBSIDIAN] Vérifiez 'Allow HTTP Requests'")
         return false
     end
 end
@@ -285,26 +217,39 @@ end
 -- Vérification au démarrage
 spawn(function()
     wait(2)
+    print("🚀 [OBSIDIAN] Démarrage du système...")
     local authorized = checkWhitelist()
     
     if authorized then
-        print("🎯 [OBSIDIAN] Système opérationnel")
+        print("🎯 [OBSIDIAN] Système OPÉRATIONNEL")
+        print("🍃 [OBSIDIAN] Données synchronisées avec MongoDB")
         -- ICI: Activez vos protections Obsidian
     else
-        print("🔒 [OBSIDIAN] Système en attente d'autorisation")
+        print("🔒 [OBSIDIAN] Système en ATTENTE d'autorisation")
+        print("📝 [OBSIDIAN] Contactez l'admin pour whitelist")
     end
 end)
 
 -- API publique
 _G.ObsidianWhitelist = {
     IsAuthorized = checkWhitelist,
-    GetGameId = function() return tostring(game.GameId) end
+    GetGameId = function() return tostring(game.GameId) end,
+    GetStatus = function() 
+        return checkWhitelist() and "AUTHORIZED" or "UNAUTHORIZED" 
+    end
 }`
 
     navigator.clipboard.writeText(script)
-    setSuccess("Script copié !")
+    setSuccess("✅ Script MongoDB copié !")
   }
 
+  // Charger au démarrage
+  useEffect(() => {
+    testMongoDB()
+    loadServers()
+  }, [])
+
+  // Nettoyer les messages
   useEffect(() => {
     if (error || success) {
       const timer = setTimeout(() => {
@@ -331,35 +276,41 @@ _G.ObsidianWhitelist = {
         <Card className="bg-green-900/50 border-green-700">
           <CardContent className="p-4 flex items-center gap-2">
             <Shield className="h-5 w-5 text-green-400" />
-            <p className="text-green-300">✅ {success}</p>
+            <p className="text-green-300">{success}</p>
           </CardContent>
         </Card>
       )}
 
-      {/* Info Persistance */}
-      <Card className="bg-blue-900/50 border-blue-700">
+      {/* Statut MongoDB */}
+      <Card
+        className={`${mongoStatus.connected ? "bg-green-900/50 border-green-700" : "bg-red-900/50 border-red-700"}`}
+      >
         <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-blue-400 mt-0.5" />
+          <div className="flex items-center gap-3">
+            {mongoStatus.loading ? (
+              <RefreshCw className="h-6 w-6 text-blue-400 animate-spin" />
+            ) : mongoStatus.connected ? (
+              <CheckCircle className="h-6 w-6 text-green-400" />
+            ) : (
+              <XCircle className="h-6 w-6 text-red-400" />
+            )}
             <div>
-              <h3 className="text-blue-300 font-medium mb-2">💾 Persistance Garantie</h3>
-              <p className="text-blue-200 text-sm mb-2">
-                Vos données sont sauvegardées automatiquement dans votre navigateur ET synchronisées avec le serveur.
+              <h3 className={`font-medium ${mongoStatus.connected ? "text-green-300" : "text-red-300"}`}>
+                🍃 MongoDB {mongoStatus.connected ? "CONNECTÉ" : "DÉCONNECTÉ"}
+              </h3>
+              <p className={`text-sm ${mongoStatus.connected ? "text-green-200" : "text-red-200"}`}>
+                {mongoStatus.message}
               </p>
-              <div className="flex items-center gap-4 text-sm">
-                <span className="text-blue-300">
-                  <Database className="h-4 w-4 inline mr-1" />
-                  MongoDB Simulé
-                </span>
-                <span className="text-blue-300">
-                  <Sync className="h-4 w-4 inline mr-1" />
-                  Auto-Sync
-                </span>
-                {lastSync && (
-                  <span className="text-blue-400">Dernière sync: {new Date(lastSync).toLocaleTimeString()}</span>
-                )}
-              </div>
             </div>
+            <Button
+              onClick={testMongoDB}
+              size="sm"
+              variant="outline"
+              className="ml-auto border-slate-600 text-slate-300 hover:bg-slate-700 bg-transparent"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Test
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -372,7 +323,7 @@ _G.ObsidianWhitelist = {
               <Server className="h-8 w-8 text-blue-400" />
               <div>
                 <p className="text-2xl font-bold text-white">{stats.total}</p>
-                <p className="text-slate-400">Serveurs Total</p>
+                <p className="text-slate-400">Serveurs MongoDB</p>
               </div>
             </div>
           </CardContent>
@@ -408,7 +359,7 @@ _G.ObsidianWhitelist = {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Plus className="h-5 w-5" />
-            Ajouter un serveur
+            Ajouter un serveur à MongoDB
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -431,40 +382,19 @@ _G.ObsidianWhitelist = {
           <div className="flex gap-2 flex-wrap">
             <Button
               onClick={addServer}
-              disabled={loading || !newGameId.trim()}
+              disabled={loading || !newGameId.trim() || !mongoStatus.connected}
               className="bg-purple-600 hover:bg-purple-700"
             >
-              {loading ? "Ajout..." : "Ajouter"}
+              {loading ? "Ajout..." : "Ajouter à MongoDB"}
             </Button>
             <Button
-              onClick={reloadData}
+              onClick={loadServers}
               variant="outline"
               className="border-blue-600 text-blue-300 hover:bg-blue-600/20 bg-transparent"
             >
-              <Sync className="h-4 w-4 mr-2" />
+              <RefreshCw className="h-4 w-4 mr-2" />
               Recharger
             </Button>
-            <Button
-              onClick={exportData}
-              variant="outline"
-              className="border-green-600 text-green-300 hover:bg-green-600/20 bg-transparent"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-            <label className="cursor-pointer">
-              <Button
-                variant="outline"
-                className="border-yellow-600 text-yellow-300 hover:bg-yellow-600/20 bg-transparent"
-                asChild
-              >
-                <span>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Import
-                </span>
-              </Button>
-              <input type="file" accept=".json" onChange={importData} className="hidden" />
-            </label>
           </div>
         </CardContent>
       </Card>
@@ -473,15 +403,15 @@ _G.ObsidianWhitelist = {
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
-            <Server className="h-5 w-5" />
-            Serveurs Whitelistés ({servers.length})
+            <Database className="h-5 w-5" />
+            Serveurs MongoDB ({servers.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {servers.length === 0 ? (
             <div className="text-center py-8">
-              <Server className="h-12 w-12 text-slate-500 mx-auto mb-4" />
-              <p className="text-slate-400">Aucun serveur whitelisté</p>
+              <Database className="h-12 w-12 text-slate-500 mx-auto mb-4" />
+              <p className="text-slate-400">Aucun serveur dans MongoDB</p>
               <p className="text-slate-500 text-sm">Ajoutez votre premier serveur ci-dessus</p>
             </div>
           ) : (
@@ -494,6 +424,7 @@ _G.ObsidianWhitelist = {
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <Badge className="bg-green-600/20 text-green-400">{server.gameId}</Badge>
+                      <Badge className="bg-blue-600/20 text-blue-400">MongoDB</Badge>
                       {testResults[server.gameId] !== undefined && (
                         <Badge className={testResults[server.gameId] ? "bg-green-600" : "bg-red-600"}>
                           {testResults[server.gameId] ? "✅ OK" : "❌ NOK"}
@@ -534,7 +465,7 @@ _G.ObsidianWhitelist = {
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
           <CardTitle className="text-white flex items-center justify-between">
-            📋 Script Roblox v2.0
+            📋 Script Roblox MongoDB v3.0
             <Button
               onClick={copyScript}
               variant="outline"
@@ -549,9 +480,11 @@ _G.ObsidianWhitelist = {
         <CardContent>
           <div className="bg-slate-700/50 p-3 rounded border border-slate-600">
             <p className="text-sm font-mono text-green-400">
-              URL: {typeof window !== "undefined" ? window.location.origin : ""}/api/whitelist/check
+              🍃 MongoDB: {typeof window !== "undefined" ? window.location.origin : ""}/api/whitelist/check
             </p>
-            <p className="text-sm text-slate-400 mt-2">Script amélioré avec logs détaillés et API publique</p>
+            <p className="text-sm text-slate-400 mt-2">
+              Script optimisé pour MongoDB avec logs détaillés et vérification de connexion
+            </p>
           </div>
         </CardContent>
       </Card>
