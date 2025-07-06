@@ -28,17 +28,25 @@ export default function ServerWhitelistManager() {
   const loadServers = async () => {
     try {
       setError(null)
+      console.log("🔄 Chargement des serveurs...")
+
       const response = await fetch("/api/whitelist")
+      console.log("📡 Réponse:", response.status, response.statusText)
 
       if (response.ok) {
         const data = await response.json()
+        console.log("📊 Données reçues:", data)
         setServers(data.servers || [])
         setStats(data.stats || { total: 0, withLastCheck: 0, recentChecks: 0 })
+        console.log(`✅ ${data.servers?.length || 0} serveurs chargés`)
       } else {
-        setError("Erreur lors du chargement")
+        const errorText = await response.text()
+        console.error("❌ Erreur API:", response.status, errorText)
+        setError(`Erreur ${response.status}: ${errorText}`)
       }
     } catch (error) {
-      setError("Erreur de connexion")
+      console.error("❌ Erreur connexion:", error)
+      setError("Erreur de connexion au serveur")
     }
   }
 

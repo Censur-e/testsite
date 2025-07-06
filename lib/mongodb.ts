@@ -1,137 +1,92 @@
-import { MongoClient, type Db, type Collection } from "mongodb"
-
 interface WhitelistServer {
   gameId: string
   gameName?: string
-  addedAt: Date
-  lastCheck?: Date
+  addedAt: string
+  lastCheck?: string
 }
 
-class MongoDB {
-  private client: MongoClient | null = null
-  private db: Db | null = null
+class SimpleStorage {
+  private servers: WhitelistServer[] = []
 
-  async connect(): Promise<Db> {
-    if (this.db) {
-      return this.db
-    }
-
-    try {
-      const uri = process.env.MONGODB_URI
-      if (!uri) {
-        throw new Error("MONGODB_URI non définie")
-      }
-
-      this.client = new MongoClient(uri)
-      await this.client.connect()
-      this.db = this.client.db("obsidian")
-
-      console.log("✅ Connecté à MongoDB")
-      return this.db
-    } catch (error) {
-      console.error("❌ Erreur connexion MongoDB:", error)
-      throw error
-    }
+  constructor() {
+    this.loadFromEnv()
   }
 
-  async getCollection(): Promise<Collection<WhitelistServer>> {
-    const db = await this.connect()
-    return db.collection<WhitelistServer>("whitelist")
+  private loadFromEnv() {
+    try {
+      // Charger depuis la variable d'environnement si elle existe
+      const envData = process.env.WHITELIST_DATA
+      if (envData) {
+        const parsed = JSON.parse(envData)
+        this.servers = parsed.servers || []
+        console.log(`✅ Chargé ${this.servers.length} serveurs depuis l'environnement`)
+      } else {
+        console.log("📝 Démarrage avec liste vide")
+        this.servers = []
+      }
+    } catch (error) {
+      console.error("❌ Erreur chargement:", error)
+      this.servers = []
+    }
   }
 
   async addServer(gameId: string, gameName?: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const collection = await this.getCollection()
+    console.log(`➕ Ajout serveur: ${gameId}`)
 
-      // Vérifier si existe déjà
-      const existing = await collection.findOne({ gameId })
-      if (existing) {
-        return { success: false, error: "Serveur déjà existant" }
-      }
-
-      // Ajouter
-      await collection.insertOne({
-        gameId,
-        gameName,
-        addedAt: new Date(),
-      })
-
-      console.log(`✅ Serveur ajouté: ${gameId}`)
-      return { success: true }
-    } catch (error) {
-      console.error("❌ Erreur ajout serveur:", error)
-      return { success: false, error: "Erreur base de données" }
+    if (this.servers.some((s) => s.gameId === gameId)) {
+      return { success: false, error: "Serveur déjà existant" }
     }
+
+    this.servers.push({
+      gameId,
+      gameName,
+      addedAt: new Date().toISOString(),
+    })
+
+    console.log(`✅ Serveur ajouté: ${gameId}`)
+    return { success: true }
   }
 
   async removeServer(gameId: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const collection = await this.getCollection()
+    console.log(`➖ Suppression serveur: ${gameId}`)
 
-      const result = await collection.deleteOne({ gameId })
+    const initialLength = this.servers.length
+    this.servers = this.servers.filter((s) => s.gameId !== gameId)
 
-      if (result.deletedCount === 0) {
-        return { success: false, error: "Serveur non trouvé" }
-      }
-
-      console.log(`✅ Serveur supprimé: ${gameId}`)
-      return { success: true }
-    } catch (error) {
-      console.error("❌ Erreur suppression serveur:", error)
-      return { success: false, error: "Erreur base de données" }
+    if (this.servers.length === initialLength) {
+      return { success: false, error: "Serveur non trouvé" }
     }
+
+    console.log(`✅ Serveur supprimé: ${gameId}`)
+    return { success: true }
   }
 
   async isWhitelisted(gameId: string): Promise<boolean> {
-    try {
-      const collection = await this.getCollection()
-      const server = await collection.findOne({ gameId })
+    const server = this.servers.find((s) => s.gameId === gameId)
 
-      // Mettre à jour lastCheck si trouvé
-      if (server) {
-        await collection.updateOne({ gameId }, { $set: { lastCheck: new Date() } })
-      }
-
-      const found = !!server
-      console.log(`🔍 Vérification ${gameId}: ${found ? "AUTORISÉ" : "REFUSÉ"}`)
-      return found
-    } catch (error) {
-      console.error("❌ Erreur vérification:", error)
-      return false
+    if (server) {
+      server.lastCheck = new Date().toISOString()
     }
+
+    const found = !!server
+    console.log(`🔍 Vérification ${gameId}: ${found ? "AUTORISÉ" : "REFUSÉ"}`)
+    return found
   }
 
   async getAllServers(): Promise<WhitelistServer[]> {
-    try {
-      const collection = await this.getCollection()
-      const servers = await collection.find({}).sort({ addedAt: -1 }).toArray()
-
-      console.log(`📋 Récupéré ${servers.length} serveurs`)
-      return servers
-    } catch (error) {
-      console.error("❌ Erreur récupération serveurs:", error)
-      return []
-    }
+    console.log(`📋 Récupération de ${this.servers.length} serveurs`)
+    return [...this.servers]
   }
 
   async getStats() {
-    try {
-      const collection = await this.getCollection()
+    const total = this.servers.length
+    const withLastCheck = this.servers.filter((s) => s.lastCheck).length
 
-      const total = await collection.countDocuments()
-      const withLastCheck = await collection.countDocuments({ lastCheck: { $exists: true } })
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const recentChecks = this.servers.filter((s) => s.lastCheck && s.lastCheck > oneDayAgo).length
 
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-      const recentChecks = await collection.countDocuments({
-        lastCheck: { $gte: oneDayAgo },
-      })
-
-      return { total, withLastCheck, recentChecks }
-    } catch (error) {
-      console.error("❌ Erreur stats:", error)
-      return { total: 0, withLastCheck: 0, recentChecks: 0 }
-    }
+    return { total, withLastCheck, recentChecks }
   }
 }
 
-export const mongodb = new MongoDB()
+export const mongodb = new SimpleStorage()

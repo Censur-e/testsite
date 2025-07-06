@@ -3,10 +3,12 @@ import { mongodb } from "@/lib/mongodb"
 
 export async function GET() {
   try {
-    console.log("[API] GET /api/whitelist")
+    console.log("[API] 📡 GET /api/whitelist - Récupération des serveurs")
 
     const servers = await mongodb.getAllServers()
     const stats = await mongodb.getStats()
+
+    console.log(`[API] ✅ Récupéré ${servers.length} serveurs`)
 
     return NextResponse.json({
       success: true,
@@ -15,37 +17,57 @@ export async function GET() {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error("[API] Erreur GET:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
+    console.error("[API] ❌ Erreur GET:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur serveur lors de la récupération",
+        details: error instanceof Error ? error.message : "Erreur inconnue",
+      },
+      { status: 500 },
+    )
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("[API] POST /api/whitelist")
+    console.log("[API] ➕ POST /api/whitelist - Ajout serveur")
 
-    const { gameId, gameName } = await request.json()
+    const body = await request.json()
+    const { gameId, gameName } = body
+
+    console.log("[API] 📝 Données reçues:", { gameId, gameName })
 
     if (!gameId?.trim()) {
+      console.log("[API] ❌ Game ID manquant")
       return NextResponse.json({ success: false, error: "Game ID requis" }, { status: 400 })
     }
 
     const result = await mongodb.addServer(gameId.trim(), gameName?.trim())
 
     if (!result.success) {
+      console.log("[API] ❌ Échec ajout:", result.error)
       return NextResponse.json({ success: false, error: result.error }, { status: 409 })
     }
 
     const servers = await mongodb.getAllServers()
 
+    console.log("[API] ✅ Serveur ajouté avec succès")
     return NextResponse.json({
       success: true,
-      message: "Serveur ajouté",
+      message: "Serveur ajouté avec succès",
       servers,
     })
   } catch (error) {
-    console.error("[API] Erreur POST:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
+    console.error("[API] ❌ Erreur POST:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur serveur lors de l'ajout",
+        details: error instanceof Error ? error.message : "Erreur inconnue",
+      },
+      { status: 500 },
+    )
   }
 }
 
