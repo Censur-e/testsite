@@ -5,8 +5,18 @@ export async function GET() {
   try {
     console.log("[API] 📡 GET /api/whitelist - Récupération des serveurs")
 
-    const servers = await mongodb.getAllServers()
-    const stats = await mongodb.getStats()
+    // Timeout de 10 secondes pour éviter les 504
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Timeout API")), 10000)
+    })
+
+    const dataPromise = async () => {
+      const servers = await mongodb.getAllServers()
+      const stats = await mongodb.getStats()
+      return { servers, stats }
+    }
+
+    const { servers, stats } = await Promise.race([dataPromise(), timeoutPromise])
 
     console.log(`[API] ✅ Récupéré ${servers.length} serveurs`)
 
@@ -51,12 +61,14 @@ export async function POST(request: NextRequest) {
     }
 
     const servers = await mongodb.getAllServers()
+    const stats = await mongodb.getStats()
 
     console.log("[API] ✅ Serveur ajouté avec succès")
     return NextResponse.json({
       success: true,
       message: "Serveur ajouté avec succès",
       servers,
+      stats,
     })
   } catch (error) {
     console.error("[API] ❌ Erreur POST:", error)
@@ -88,11 +100,13 @@ export async function DELETE(request: NextRequest) {
     }
 
     const servers = await mongodb.getAllServers()
+    const stats = await mongodb.getStats()
 
     return NextResponse.json({
       success: true,
       message: "Serveur supprimé",
       servers,
+      stats,
     })
   } catch (error) {
     console.error("[API] Erreur DELETE:", error)
